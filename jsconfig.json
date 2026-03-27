@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "ES6",
+    "checkJs": true,
+    "noUnusedLocals": false,
+    "paths": {
+      "@zos/*": ["node_modules/@zeppos/device-types/zos/*"]
+    }
+  },
+  "exclude": ["node_modules"]
+}

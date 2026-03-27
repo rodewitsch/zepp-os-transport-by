@@ -1,0 +1,67 @@
+{
+  "configVersion": "v3",
+  "app": {
+    "appId": 20250327,
+    "appName": "Transport BY",
+    "appType": "app",
+    "version": {
+      "code": 1,
+      "name": "1.0.0"
+    },
+    "icon": "icon.png",
+    "vender": "community",
+    "description": "Check public transport schedules from transport-by.app"
+  },
+  "permissions": [
+    "data:os.device.info",
+    "device:os.local_storage"
+  ],
+  "runtime": {
+    "apiVersion": {
+      "compatible": "3.0",
+      "target": "4.2",
+      "minVersion": "3.0"
+    }
+  },
+  "targets": {
+    "bip6": {
+      "module": {
+        "page": {
+          "pages": [
+            "page/home/index",
+            "page/arrivals/index",
+            "page/add-stop/index",
+            "page/settings/index"
+          ]
+        },
+        "app-side": {
+          "path": "app-side/index"
+        }
+      },
+      "platforms": [
+        {
+          "name": "Amazfit Bip 6",
+          "deviceSource": 9765120
+        },
+        {
+          "name": "Amazfit Bip 6",
+          "deviceSource": 9765121
+        },
+        {
+          "name": "Amazfit Bip 6",
+          "deviceSource": 10158337
+        }
+      ],
+      "designWidth": 390
+    }
+  },
+  "i18n": {
+    "en-US": {
+      "appName": "Transport BY"
+    },
+    "ru-RU": {
+      "appName": "Транспорт BY"
+    }
+  },
+  "defaultLanguage": "en-US"
+}

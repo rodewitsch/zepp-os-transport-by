@@ -1,0 +1,20 @@
+{
+  "name": "transport-by-zepp",
+  "version": "1.0.0",
+  "description": "Public transport schedule app for Zepp OS (Amazfit Bip 6)",
+  "scripts": {
+    "dev": "zeus dev",
+    "build": "zeus build",
+    "preview": "zeus preview"
+  },
+  "dependencies": {
+    "@zeppos/zml": "^0.0.43"
+  },
+  "devDependencies": {
+    "@zeppos/device-types": "^3.0.0",
+    "@zeppos/zeus-cli": "^1.7.10"
+  },
+  "_moduleAliases": {
+    "zeppos-app-utils": "./node_modules/@zeppos/zeus-cli/private-modules/zeppos-app-utils"
+  }
+}
