@@ -12,6 +12,7 @@ import {
   COLOR_TEXT,
   COLOR_TEXT_DIM,
   COLOR_CARD_BG,
+  COLOR_ERROR,
   COLOR_SEPARATOR,
   COLOR_ACCENT,
   FONT_SIZE_TITLE,
@@ -29,6 +30,7 @@ const CARD_H = 76
 const CARD_GAP = 8
 const ADD_BTN_H = 56
 const EMPTY_ICON_SIZE = 64
+const CARD_ACTION_W = 48
 
 Page(
   BasePage({
@@ -189,12 +191,16 @@ Page(
           url: 'page/arrivals/index',
           params: JSON.stringify({ stop, index }),
         })
+      const removeStop = () => {
+        this.state.favorites = removeFavorite(index)
+        this.renderPage()
+      }
 
       // Card hit area
       hmUI.createWidget(hmUI.widget.BUTTON, {
         x: MARGIN,
         y: cardY,
-        w: CONTENT_W,
+        w: CONTENT_W - CARD_ACTION_W,
         h: CARD_H,
         normal_color: COLOR_CARD_BG,
         press_color: 0x2a2a2a,
@@ -207,7 +213,7 @@ Page(
       hmUI.createWidget(hmUI.widget.TEXT, {
         x: MARGIN + 12,
         y: cardY + 10,
-        w: CONTENT_W - 80,
+        w: CONTENT_W - CARD_ACTION_W - 24,
         h: 28,
         text: stop.StopName || 'Unknown stop',
         text_size: FONT_SIZE_BODY,
@@ -224,7 +230,7 @@ Page(
         hmUI.createWidget(hmUI.widget.TEXT, {
           x: MARGIN + 12,
           y: cardY + 42,
-          w: CONTENT_W - 80,
+          w: CONTENT_W - CARD_ACTION_W - 24,
           h: 22,
           text: routeStr,
           text_size: FONT_SIZE_SMALL,
@@ -235,11 +241,11 @@ Page(
         })
       }
 
-      // Arrow → (also tappable)
+      // Open arrivals shortcut
       hmUI.createWidget(hmUI.widget.TEXT, {
-        x: MARGIN + CONTENT_W - 40,
+        x: MARGIN + CONTENT_W - CARD_ACTION_W - 28,
         y: cardY,
-        w: 36,
+        w: 24,
         h: CARD_H,
         text: '›',
         text_size: 28,
@@ -247,6 +253,21 @@ Page(
         align_h: hmUI.align.CENTER_H,
         align_v: hmUI.align.CENTER_V,
         click_func: cardNav,
+      })
+
+      // Remove favourite shortcut
+      hmUI.createWidget(hmUI.widget.BUTTON, {
+        x: MARGIN + CONTENT_W - CARD_ACTION_W,
+        y: cardY,
+        w: CARD_ACTION_W,
+        h: CARD_H,
+        normal_color: 0x2a1010,
+        press_color: 0x3a1616,
+        text: 'X',
+        text_size: FONT_SIZE_SMALL,
+        color: COLOR_ERROR,
+        radius: 8,
+        click_func: removeStop,
       })
     },
 

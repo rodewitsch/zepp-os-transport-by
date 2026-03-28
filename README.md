@@ -100,8 +100,9 @@ The signed `.zab` file appears in `dist/`. Transfer it via the Zepp app.
 3. Select a city first (default: Minsk).
 4. Tap **+** on a search result to save it as a favourite.
 5. Back on the home screen, tap a stop to see live arrivals.
-6. Tap **↻ Refresh** to reload.
-7. Tap 🗑 in the arrivals header to remove a stop from favourites.
+6. Tap `X` on a saved stop from the home screen to remove it quickly.
+7. Tap **↻ Refresh** to reload.
+8. Tap 🗑 in the arrivals header to remove a stop from favourites.
 
 ## Customisation
 
