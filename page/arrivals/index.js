@@ -94,7 +94,10 @@ Page(
 
     renderHeader() {
       const stop = this.state.stop
-      const stopName = this.state.stopName || (stop && stop.name) || 'Stop'
+      const stopName =
+        this.state.stopName ||
+        (stop && (stop.name || stop.stopName || stop.StopName || stop.title)) ||
+        'Stop'
 
       hmUI.createWidget(hmUI.widget.FILL_RECT, {
         x: 0,
@@ -405,6 +408,18 @@ Page(
     fetchArrivals() {
       const stop = this.state.stop
       if (!stop) return
+      const stopId = String(
+        stop.id || stop.stopId || stop.StopId || stop.stop_id || ''
+      )
+
+      if (!stopId) {
+        this.state.loading = false
+        this.state.error = 'Stop ID is missing. Re-add this stop.'
+        this.state.arrivals = []
+        this.state.lastUpdated = new Date()
+        this.renderContent()
+        return
+      }
 
       this.state.loading = true
       this.state.error = null
@@ -413,7 +428,7 @@ Page(
       this.request({
         method: 'GET_ARRIVALS',
         params: {
-          stopId: stop.id,
+          stopId,
           city: stop.city || 'minsk',
           lang: 'ru',
         },
@@ -427,7 +442,10 @@ Page(
             this.state.arrivals = []
           } else {
             this.state.arrivals = data.arrivals || []
-            this.state.stopName = data.stopName || (stop && stop.name) || ''
+            this.state.stopName =
+              data.stopName ||
+              (stop && (stop.name || stop.stopName || stop.StopName || stop.title)) ||
+              ''
             this.state.error = null
           }
 

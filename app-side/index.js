@@ -11,15 +11,39 @@ import { BaseSideService } from '@zeppos/zml/base-side'
 // https://transport-by.app/maps
 //
 // Known endpoint patterns:
-//   GET https://transport-by.app/api/v1/stops/search
-//        ?q={query}&city={city}&lang={lang}
-//   GET https://transport-by.app/api/v1/stops/{stopId}/arrivals
-//        ?city={city}&lang={lang}
+//   POST https://transport-by.app/api/Search
+//   POST https://transport-by.app/api/GetScoreboard
 // ===========================================================
 
 const API_BASE = 'https://transport-by.app/api'
-const API_LEGACY_BASE = 'https://transport-by.app/api/v1'
 const DEFAULT_LANG = 'ru'
+
+function isJSON(data) {
+  try {
+    JSON.parse(data);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function ndjsonToJson(ndjsonString) {
+  // Split the input by newlines and filter out empty lines
+  const lines = ndjsonString.trim().split('\n').filter(line => line.trim());
+
+  // Parse each line as JSON and collect in an array
+  const jsonArray = lines.map(line => {
+    try {
+      return JSON.parse(line);
+    } catch (error) {
+      console.error('Error parsing line:', line);
+      return null;
+    }
+  }).filter(item => item !== null);
+
+  return jsonArray;
+}
+
 
 async function fetchJson(url, options = {}) {
   const req = {
@@ -37,35 +61,21 @@ async function fetchJson(url, options = {}) {
 
   const response = await fetch(req)
   const status = response.status || response.statusCode || 200
-  // Zepp OS may expose the body under different field names depending on the runtime version.
-  const rawBody = response.body != null ? response.body
-    : response.text != null ? response.text
-    : response.data
 
-  let body = rawBody
-  if (typeof rawBody === 'string') {
-    try {
-      body = JSON.parse(rawBody)
-    } catch (e) {
-      // Some endpoints return newline-delimited JSON objects instead of one JSON document.
-      const lines = rawBody
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean)
+  // Zepp OS fetch responses vary by runtime version.
 
-      if (lines.length > 0) {
-        const parsed = []
-        for (let i = 0; i < lines.length; i += 1) {
-          try {
-            parsed.push(JSON.parse(lines[i]))
-          } catch (lineErr) {
-            // Keep line as-is when parsing fails, so caller can still inspect payload.
-            parsed.push(lines[i])
-          }
-        }
+
+  let body;
+
+  if (isJSON(await response.text())) {
+    body = await response.json();
+  } else {
+    body = await response.text();
+    // If the response looks like NDJSON, try to parse it.
+    if (body && body.includes('\n') && body.trim().startsWith('{')) {
+      const parsed = ndjsonToJson(body)
+      if (parsed.length > 0) {
         body = parsed
-      } else {
-        body = rawBody
       }
     }
   }
@@ -85,103 +95,58 @@ async function postWithFallback(url, payload) {
     Accept: 'application/json, text/plain, */*',
     Origin: 'https://transport-by.app',
     Referer: 'https://transport-by.app/maps',
+    'Content-Type': 'application/json',
     'User-Agent':
       'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
-  }
-  const attempts = [
-    {
-      headers: { ...browserHeaders, 'Content-Type': 'application/json' },
-      body,
-    },
-    {
-      headers: { ...browserHeaders, 'content-type': 'application/json' },
-      body,
-    },
-    {
-      headers: { ...browserHeaders, 'Content-Type': 'text/plain' },
-      body,
-    },
-    {
-      headers: browserHeaders,
-      body,
-    },
-  ]
+  };
 
-  let lastError = null
-  const errorMessages = []
-  for (let i = 0; i < attempts.length; i += 1) {
-    try {
-      return await fetchJson(url, {
-        method: 'POST',
-        headers: attempts[i].headers,
-        body: attempts[i].body,
-      })
-    } catch (err) {
-      lastError = err
-      errorMessages.push(`attempt${i + 1}: ${err && err.message ? err.message : String(err)}`)
-      console.log(`POST attempt ${i + 1} failed for ${url}:`, err)
-    }
-  }
-
-  if (errorMessages.length > 0) {
-    throw new Error(`All POST attempts failed (${url}): ${errorMessages.join(' | ')}`)
-  }
-
-  throw lastError || new Error(`All POST attempts failed (${url})`)
+  return fetchJson(url, {
+    method: 'POST',
+    headers: browserHeaders,
+    body,
+  })
 }
 
 /**
  * Search for bus stops by name or address.
  */
 async function searchStops(query, city, lang) {
-  const legacyUrl =
-    `${API_LEGACY_BASE}/stops/search` +
-    `?q=${encodeURIComponent(query)}` +
-    `&city=${encodeURIComponent(city || 'minsk')}` +
-    `&lang=${lang || DEFAULT_LANG}`
 
-  try {
-    const legacyBody = await fetchJson(legacyUrl, { method: 'GET' })
-    const legacyStops = normalizeStops(legacyBody)
-    if (legacyStops.length > 0) return legacyStops
-  } catch (e) {
-    console.log('Legacy search endpoint failed:', e)
-  }
-
-  const newBody = await postWithFallback(`${API_BASE}/Search`, {
-    Text: query,
-    BoundaryCircle: {
-      Latitude: 53.706462,
-      Longitude: 28.943481,
-      Radius: 350,
+  const response = await fetchJson(`${API_BASE}/Search`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
     },
-    AdditionalParams: `layers=venue,address&lang=${lang || DEFAULT_LANG}`,
-  })
+    body: JSON.stringify({
+      Text: query,
+      BoundaryCircle: {
+        Latitude: 53.706462,
+        Longitude: 28.943481,
+        Radius: 99999,
+      },
+      AdditionalParams: `layers=venue,address&lang=${lang || DEFAULT_LANG}`,
+    }),
+  });
 
-  return normalizeStops(newBody)
+  return response.stops;
 }
 
 /**
  * Get arrival predictions for a specific stop.
  */
 async function getArrivals(stopId, city, lang) {
-  const legacyUrl =
-    `${API_LEGACY_BASE}/stops/${encodeURIComponent(stopId)}/arrivals` +
-    `?city=${encodeURIComponent(city || 'minsk')}` +
-    `&lang=${lang || DEFAULT_LANG}`
-
-  try {
-    const legacyBody = await fetchJson(legacyUrl, { method: 'GET' })
-    const legacyArrivals = normalizeArrivals(legacyBody, stopId)
-    if (legacyArrivals.arrivals.length > 0) return legacyArrivals
-  } catch (e) {
-    console.log('Legacy arrivals endpoint failed:', e)
-  }
-
-  const newBody = await postWithFallback(`${API_BASE}/GetScoreboard`, {
-    StopId: String(stopId),
-    Types: [1, 2, 3, 4, 5],
+  console.log(`Fetching arrivals for stopId=${stopId}, city=${city}, lang=${lang}`)
+  const newBody = await fetchJson(`${API_BASE}/GetScoreboard`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      StopId: String(stopId),
+    }),
   })
+
+  console.log('Raw arrivals response:', newBody)
 
   return normalizeArrivals(newBody, stopId)
 }
@@ -198,7 +163,8 @@ function normalizeStops(raw) {
     ? raw
     : raw.stops || raw.Stops || raw.data || raw.items || []
 
-  return items.slice(0, 20).map((s) => ({
+  // Return up to 50 results to include multiple stops with same name (opposite road sides)
+  return items.slice(0, 50).map((s) => ({
     id: String(s.id || s.Id || s.stopId || s.StopId || s.stop_id || ''),
     name:
       s.name ||
@@ -213,8 +179,8 @@ function normalizeStops(raw) {
     routes: Array.isArray(s.routes)
       ? s.routes.map((r) => String(r.number || r.routeNumber || r))
       : Array.isArray(s.Routes)
-      ? s.Routes.map((r) => String(r.Number || r.RouteNumber || r))
-      : [],
+        ? s.Routes.map((r) => String(r.Number || r.RouteNumber || r))
+        : [],
     lat: s.lat || s.latitude || null,
     lon: s.lon || s.lng || s.longitude || null,
   }))
@@ -229,10 +195,10 @@ function normalizeArrivals(raw, stopId) {
 
   // Handle case where fetchJson returned a raw string (e.g. NDJSON that bypassed the parser).
   if (typeof raw === 'string' && raw.length > 0) {
-    const lines = raw.split('\n').map(function(l) { return l.trim() }).filter(Boolean)
+    const lines = raw.split('\n').map(function (l) { return l.trim() }).filter(Boolean)
     const parsed = []
     for (let i = 0; i < lines.length; i += 1) {
-      try { parsed.push(JSON.parse(lines[i])) } catch (_e) {}
+      try { parsed.push(JSON.parse(lines[i])) } catch (_e) { }
     }
     if (parsed.length > 0) raw = parsed
   }
@@ -244,7 +210,7 @@ function normalizeArrivals(raw, stopId) {
     ? raw
     // Single GetScoreboard entry wrapped in {result:{...}}
     : raw.result ? [raw]
-    : raw.arrivals || raw.Arrivals || raw.data || raw.items || raw.vehicles || raw.Scoreboard || []
+      : raw.arrivals || raw.Arrivals || raw.data || raw.items || raw.vehicles || raw.Scoreboard || []
 
   // GetScoreboard can return NDJSON lines like {"result": {...}}.
   const items = baseItems
@@ -257,28 +223,28 @@ function normalizeArrivals(raw, stopId) {
         a.minutes != null
           ? Number(a.minutes)
           : a.minutesLeft != null
-          ? Number(a.minutesLeft)
-          : a.InfoM && Array.isArray(a.InfoM) && a.InfoM.length > 0
-          ? Number(a.InfoM[0])
-          : a.Info && Array.isArray(a.Info) && a.Info.length > 0
-          ? Math.round(Number(a.Info[0]) / 60)
-          : a.eta != null
-          ? Math.round(Number(a.eta) / 60)
-          : a.time != null
-          ? computeMinutesFromTime(a.time)
-          : null
+            ? Number(a.minutesLeft)
+            : a.InfoM && Array.isArray(a.InfoM) && a.InfoM.length > 0
+              ? Number(a.InfoM[0])
+              : a.Info && Array.isArray(a.Info) && a.Info.length > 0
+                ? Math.round(Number(a.Info[0]) / 60)
+                : a.eta != null
+                  ? Math.round(Number(a.eta) / 60)
+                  : a.time != null
+                    ? computeMinutesFromTime(a.time)
+                    : null
 
       return {
         route: String(
           a.routeNumber ||
-            a.RouteNumber ||
-            a.route_number ||
-            a.number ||
-            a.Number ||
-            a.route ||
-            a.lineNumber ||
-            a.LineNumber ||
-            ''
+          a.RouteNumber ||
+          a.route_number ||
+          a.number ||
+          a.Number ||
+          a.route ||
+          a.lineNumber ||
+          a.LineNumber ||
+          ''
         ),
         direction:
           a.direction ||
@@ -335,6 +301,7 @@ AppSideService(
             return res(null, { error: 'query is required', stops: [] })
           }
           const stops = await searchStops(query, city, lang)
+          console.log(stops);
           res(null, { stops })
 
         } else if (req.method === 'GET_ARRIVALS') {
@@ -355,7 +322,7 @@ AppSideService(
       }
     },
 
-    onRun() {},
+    onRun() { },
 
     onDestroy() {
       console.log('Transport BY side service destroyed')

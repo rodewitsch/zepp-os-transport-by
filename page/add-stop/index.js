@@ -233,6 +233,8 @@ Page(
         color: COLOR_TEXT,
         radius: 8,
         click_func: () => {
+          // todo: remove after testing
+          this.state.query = 'Великий Гостинец';
           if (!this.state.query.trim()) {
             openKeyboard()
             return
@@ -308,6 +310,8 @@ Page(
         radius: 8,
         click_func: addStop,
       })
+
+      console.log(stop);
 
       // Stop name
       hmUI.createWidget(hmUI.widget.TEXT, {
