@@ -38,7 +38,8 @@ const logger = Logger.getLogger('arrivals')
 const HEADER_H = 56
 const ROW_H = 72
 const ROW_GAP = 4
-const REFRESH_BTN_H = 48
+const FOOTER_INFO_H = 28
+const UPDATE_INTERVAL_MS = 10000
 const BRIGHT_TIME_MS = 60 * 60 * 1000
 
 // Route type color map
@@ -54,6 +55,14 @@ function getRouteColor(type) {
   return TYPE_COLORS[(type || 'bus').toLowerCase()] || TYPE_COLORS.bus
 }
 
+function pad2(value) {
+  return String(value).padStart(2, '0')
+}
+
+function formatUpdatedTime(date) {
+  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`
+}
+
 Page(
   BasePage({
     state: {
@@ -64,6 +73,8 @@ Page(
       arrivals: [],
       stopName: '',
       lastUpdated: null,
+      arrivalsTimer: null,
+      footerTimeText: null,
     },
 
     onInit(paramsStr) {
@@ -97,10 +108,25 @@ Page(
       this.renderSkeleton()
 
       if (this.state.stop) {
-        this.fetchArrivals()
+        this.fetchArrivals(false)
+        this.startAutoRefresh()
       } else {
         this.state.error = 'No stop selected'
         this.renderContent()
+      }
+    },
+
+    startAutoRefresh() {
+      this.stopAutoRefresh()
+      this.state.arrivalsTimer = setInterval(() => {
+        this.fetchArrivals(true)
+      }, UPDATE_INTERVAL_MS)
+    },
+
+    stopAutoRefresh() {
+      if (this.state.arrivalsTimer) {
+        clearInterval(this.state.arrivalsTimer)
+        this.state.arrivalsTimer = null
       }
     },
 
@@ -115,6 +141,31 @@ Page(
       })
 
       this.renderHeader()
+      this.renderFooterTimeWidget()
+    },
+
+    renderFooterTimeWidget() {
+      if (this.state.footerTimeText) return
+
+      hmUI.createWidget(hmUI.widget.FILL_RECT, {
+        x: 0,
+        y: SCREEN_H - FOOTER_INFO_H,
+        w: SCREEN_W,
+        h: FOOTER_INFO_H,
+        color: COLOR_BG,
+      })
+
+      this.state.footerTimeText = hmUI.createWidget(hmUI.widget.TEXT, {
+        x: 0,
+        y: SCREEN_H - FOOTER_INFO_H,
+        w: SCREEN_W,
+        h: 20,
+        text: 'Updated: --:--:--',
+        text_size: FONT_SIZE_TINY,
+        color: COLOR_TEXT_DIM,
+        align_h: hmUI.align.CENTER_H,
+        align_v: hmUI.align.CENTER_V,
+      })
     },
 
     renderHeader() {
@@ -186,16 +237,13 @@ Page(
         x: 0,
         y: HEADER_H,
         w: SCREEN_W,
-        h: SCREEN_H - HEADER_H,
+        h: SCREEN_H - HEADER_H - FOOTER_INFO_H,
         color: COLOR_BG,
       })
 
       if (this.state.loading) {
         this.renderLoading()
-        return
-      }
-
-      if (this.state.error) {
+      } else if (this.state.error) {
         this.renderError()
       } else if (this.state.arrivals.length === 0) {
         this.renderNoArrivals()
@@ -203,7 +251,6 @@ Page(
         this.renderArrivalsRows()
       }
 
-      this.renderRefreshButton()
       this.renderLastUpdated()
     },
 
@@ -292,7 +339,7 @@ Page(
 
       arrivals.forEach((arrival, i) => {
         const rowY = startY + i * (ROW_H + ROW_GAP)
-        if (rowY + ROW_H > SCREEN_H - REFRESH_BTN_H - 84) return
+        if (rowY + ROW_H > SCREEN_H - FOOTER_INFO_H - 24) return
 
         this.renderArrivalRow(arrival, rowY)
       })
@@ -391,46 +438,21 @@ Page(
       }
     },
 
-    renderRefreshButton() {
-      const btnY = SCREEN_H - REFRESH_BTN_H - 48
-
-      hmUI.createWidget(hmUI.widget.BUTTON, {
-        x: MARGIN,
-        y: btnY,
-        w: CONTENT_W,
-        h: REFRESH_BTN_H,
-        normal_color: 0x1e3a5f,
-        press_color: 0x2a5080,
-        text: '↻  Refresh',
-        text_size: FONT_SIZE_BODY,
-        normal_text_color: COLOR_ACCENT,
-        press_text_color: COLOR_ACCENT,
-        radius: 24,
-        click_func: () => this.fetchArrivals(),
-      })
-    },
-
     renderLastUpdated() {
-      if (!this.state.lastUpdated) return
+      const text = this.state.lastUpdated
+        ? `Updated: ${formatUpdatedTime(this.state.lastUpdated)}`
+        : 'Updated: --:--:--'
 
-      const now = new Date()
-      const diff = Math.floor((now - this.state.lastUpdated) / 1000)
-      const text = diff < 10 ? 'Just updated' : `Updated ${diff}s ago`
+      if (!this.state.footerTimeText) {
+        this.renderFooterTimeWidget()
+      }
 
-      hmUI.createWidget(hmUI.widget.TEXT, {
-        x: 0,
-        y: SCREEN_H - REFRESH_BTN_H - 76,
-        w: SCREEN_W,
-        h: 20,
-        text,
-        text_size: FONT_SIZE_TINY,
-        color: COLOR_TEXT_DIM,
-        align_h: hmUI.align.CENTER,
-        align_v: hmUI.align.CENTER_V,
-      })
+      if (this.state.footerTimeText) {
+        this.state.footerTimeText.setProperty(hmUI.prop.MORE, { text })
+      }
     },
 
-    fetchArrivals() {
+    fetchArrivals(silent = false) {
       const stop = this.state.stop
       if (!stop) return
       const stopId = String(
@@ -446,18 +468,39 @@ Page(
         return
       }
 
-      this.state.loading = true
-      this.state.error = null
-      this.renderContent()
+      // Stamp every refresh attempt so footer never gets stuck on placeholder.
+      this.state.lastUpdated = new Date()
 
-      this.request({
-        method: 'GET_ARRIVALS',
-        params: {
-          stopId,
-          city: stop.city || 'minsk',
-          lang: 'ru',
-        },
-      })
+      this.state.loading = !silent
+      this.state.error = null
+      if (!silent) {
+        this.renderContent()
+      } else {
+        this.renderLastUpdated()
+      }
+
+      let requestPromise
+      try {
+        requestPromise = this.request({
+          method: 'GET_ARRIVALS',
+          params: {
+            stopId,
+            city: stop.city || 'minsk',
+            lang: 'ru',
+          },
+        })
+      } catch (err) {
+        console.error('Arrivals request setup error:', err)
+        logger.log('Arrivals request setup error:', err)
+        this.state.loading = false
+        this.state.error = 'Failed to start request. Try again.'
+        this.state.arrivals = []
+        this.state.lastUpdated = new Date()
+        this.renderContent()
+        return
+      }
+
+      requestPromise
         .then((data) => {
           logger.log('Arrivals received:', JSON.stringify(data))
           this.state.loading = false
@@ -478,6 +521,7 @@ Page(
           this.renderContent()
         })
         .catch((err) => {
+          console.error('Arrivals error:', err)
           logger.log('Arrivals error:', err)
           this.state.loading = false
           this.state.error = 'Connection failed. Check phone internet.'
@@ -488,6 +532,8 @@ Page(
     },
 
     onDestroy() {
+      this.stopAutoRefresh()
+
       try {
         resetPageBrightTime()
       } catch (e) {
