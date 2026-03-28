@@ -21,12 +21,12 @@ export function saveFavorites(favorites) {
 
 /**
  * Add a stop to favorites.
- * @param {Object} stop - { id, name, city, routes }
+ * @param {Object} stop - { StopId, StopName, City, Routes }
  * @returns {Array} Updated favorites list
  */
 export function addFavorite(stop) {
   const favorites = loadFavorites()
-  const exists = favorites.some((f) => f.id === stop.id && f.city === stop.city)
+  const exists = favorites.some((f) => f.StopId === stop.StopId && f.StopName === stop.StopName)
   if (!exists) {
     favorites.push(stop)
     saveFavorites(favorites)

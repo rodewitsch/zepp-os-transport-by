@@ -209,7 +209,7 @@ Page(
         y: cardY + 10,
         w: CONTENT_W - 80,
         h: 28,
-        text: stop.name || 'Unknown stop',
+        text: stop.StopName || 'Unknown stop',
         text_size: FONT_SIZE_BODY,
         color: COLOR_TEXT,
         align_h: hmUI.align.LEFT,
@@ -219,8 +219,8 @@ Page(
       })
 
       // Route badges (up to 4)
-      if (stop.routes && stop.routes.length > 0) {
-        const routeStr = stop.routes.slice(0, 4).join('  ')
+      if (stop.Routes && stop.Routes.length > 0) {
+        const routeStr = stop.Routes.slice(0, 4).join('  ')
         hmUI.createWidget(hmUI.widget.TEXT, {
           x: MARGIN + 12,
           y: cardY + 42,

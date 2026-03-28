@@ -319,7 +319,7 @@ Page(
         y: rowY + 8,
         w: CONTENT_W - 60,
         h: 26,
-        text: stop.name,
+        text: stop.StopName,
         text_size: FONT_SIZE_SMALL,
         color: COLOR_TEXT,
         align_h: hmUI.align.LEFT,

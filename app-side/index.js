@@ -128,7 +128,7 @@ async function searchStops(query, city, lang) {
     }),
   });
 
-  return response.stops;
+  return response.Stops;
 }
 
 /**
