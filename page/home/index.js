@@ -18,6 +18,7 @@ import {
   FONT_SIZE_TITLE,
   FONT_SIZE_BODY,
   FONT_SIZE_SMALL,
+  FONT_SIZE_TINY,
   MAX_FAVORITES,
 } from '../../utils/constants'
 import { loadFavorites, removeFavorite } from '../../utils/storage'
@@ -195,63 +196,34 @@ Page(
         this.state.favorites = removeFavorite(index)
         this.renderPage()
       }
+      const contentW = CONTENT_W - CARD_ACTION_W - 12
+      const stopName = stop.StopName || 'Unknown stop'
+      const address = stop.Address || ''
+      const routeStr = stop.Routes && stop.Routes.length > 0 ? stop.Routes.slice(0, 4).join('  ') : ''
+      const lines = [stopName, address, routeStr].filter(Boolean)
+      const buttonLabel = lines.join('\n')
+      const hasExtra = address || routeStr
 
-      // Card hit area
-      hmUI.createWidget(hmUI.widget.BUTTON, {
+      hmUI.createWidget(hmUI.widget.FILL_RECT, {
         x: MARGIN,
         y: cardY,
-        w: CONTENT_W - CARD_ACTION_W,
+        w: CONTENT_W,
         h: CARD_H,
+        color: COLOR_CARD_BG,
+        radius: 8,
+      })
+
+      hmUI.createWidget(hmUI.widget.BUTTON, {
+        x: MARGIN + 12,
+        y: cardY + 6,
+        w: contentW,
+        h: CARD_H - 12,
         normal_color: COLOR_CARD_BG,
         press_color: 0x2a2a2a,
-        text: '',
-        radius: 8,
-        click_func: cardNav,
-      })
-
-      // Stop name
-      hmUI.createWidget(hmUI.widget.TEXT, {
-        x: MARGIN + 12,
-        y: cardY + 10,
-        w: CONTENT_W - CARD_ACTION_W - 24,
-        h: 28,
-        text: stop.StopName || 'Unknown stop',
-        text_size: FONT_SIZE_BODY,
+        text: buttonLabel,
+        text_size: hasExtra ? FONT_SIZE_TINY : FONT_SIZE_BODY,
         color: COLOR_TEXT,
-        align_h: hmUI.align.LEFT,
-        align_v: hmUI.align.CENTER_V,
-        text_style: hmUI.text_style.ELLIPSIS,
-        click_func: cardNav,
-      })
-
-      // Route badges (up to 4)
-      if (stop.Routes && stop.Routes.length > 0) {
-        const routeStr = stop.Routes.slice(0, 4).join('  ')
-        hmUI.createWidget(hmUI.widget.TEXT, {
-          x: MARGIN + 12,
-          y: cardY + 42,
-          w: CONTENT_W - CARD_ACTION_W - 24,
-          h: 22,
-          text: routeStr,
-          text_size: FONT_SIZE_SMALL,
-          color: COLOR_ACCENT,
-          align_h: hmUI.align.LEFT,
-          align_v: hmUI.align.CENTER_V,
-          click_func: cardNav,
-        })
-      }
-
-      // Open arrivals shortcut
-      hmUI.createWidget(hmUI.widget.TEXT, {
-        x: MARGIN + CONTENT_W - CARD_ACTION_W - 28,
-        y: cardY,
-        w: 24,
-        h: CARD_H,
-        text: '›',
-        text_size: 28,
-        color: COLOR_TEXT_DIM,
-        align_h: hmUI.align.CENTER_H,
-        align_v: hmUI.align.CENTER_V,
+        radius: 6,
         click_func: cardNav,
       })
 

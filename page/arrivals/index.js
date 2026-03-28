@@ -1,6 +1,14 @@
 import * as hmUI from '@zos/ui'
 import { log as Logger } from '@zos/utils'
 import { push, back } from '@zos/router'
+import {
+  setPageBrightTime,
+  resetPageBrightTime,
+  pausePalmScreenOff,
+  resetPalmScreenOff,
+  pauseDropWristScreenOff,
+  resetDropWristScreenOff,
+} from '@zos/display'
 import { BasePage } from '@zeppos/zml/base-page'
 import {
   SCREEN_W,
@@ -31,6 +39,7 @@ const HEADER_H = 56
 const ROW_H = 72
 const ROW_GAP = 4
 const REFRESH_BTN_H = 48
+const BRIGHT_TIME_MS = 60 * 60 * 1000
 
 // Route type color map
 const TYPE_COLORS = {
@@ -59,6 +68,22 @@ Page(
 
     onInit(paramsStr) {
       logger.log('Arrivals page init, params:', paramsStr)
+      try {
+        setPageBrightTime({ brightTime: BRIGHT_TIME_MS })
+      } catch (e) {
+        logger.log('Failed to set bright screen:', e)
+      }
+      try {
+        pausePalmScreenOff({ duration: 0 })
+      } catch (e) {
+        logger.log('Failed to pause palm screen off:', e)
+      }
+      try {
+        pauseDropWristScreenOff({ duration: 0 })
+      } catch (e) {
+        logger.log('Failed to pause drop wrist screen off:', e)
+      }
+
       try {
         const params = JSON.parse(paramsStr || '{}')
         this.state.stop = params.stop || null
@@ -463,6 +488,22 @@ Page(
     },
 
     onDestroy() {
+      try {
+        resetPageBrightTime()
+      } catch (e) {
+        logger.log('Failed to cancel bright screen:', e)
+      }
+      try {
+        resetPalmScreenOff()
+      } catch (e) {
+        logger.log('Failed to reset palm screen off:', e)
+      }
+      try {
+        resetDropWristScreenOff()
+      } catch (e) {
+        logger.log('Failed to reset drop wrist screen off:', e)
+      }
+
       logger.log('Arrivals page destroyed')
     },
   })

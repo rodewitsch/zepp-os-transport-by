@@ -142,41 +142,6 @@ async function getArrivals(stopId, city, lang) {
 }
 
 /**
- * Normalize the stops search response into a stable schema:
- * [{ id, name, city, routes: [routeNumber, ...] }]
- */
-function normalizeStops(raw) {
-  if (!raw) return []
-
-  // Handle array at top level
-  const items = Array.isArray(raw)
-    ? raw
-    : raw.stops || raw.Stops || raw.data || raw.items || []
-
-  // Return up to 50 results to include multiple stops with same name (opposite road sides)
-  return items.slice(0, 50).map((s) => ({
-    id: String(s.id || s.Id || s.stopId || s.StopId || s.stop_id || ''),
-    name:
-      s.name ||
-      s.Name ||
-      s.stopName ||
-      s.StopName ||
-      s.stop_name ||
-      s.title ||
-      s.Title ||
-      'Unknown',
-    city: s.city || s.cityId || 'minsk',
-    routes: Array.isArray(s.routes)
-      ? s.routes.map((r) => String(r.number || r.routeNumber || r))
-      : Array.isArray(s.Routes)
-        ? s.Routes.map((r) => String(r.Number || r.RouteNumber || r))
-        : [],
-    lat: s.lat || s.latitude || null,
-    lon: s.lon || s.lng || s.longitude || null,
-  }))
-}
-
-/**
  * Normalize the arrivals response into a stable schema:
  * { stopId, stopName, arrivals: [{ route, minutes, direction }] }
  */
