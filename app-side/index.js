@@ -62,21 +62,22 @@ async function fetchJson(url, options = {}) {
   const response = await fetch(req)
   const status = response.status || response.statusCode || 200
 
-  // Zepp OS fetch responses vary by runtime version.
+  // Read body only once; device runtimes can fail on multiple reads.
+  let rawBody = ''
+  try {
+    rawBody = await response.text()
+  } catch (_e) {
+    rawBody = ''
+  }
 
-
-  let body;
-
-  if (isJSON(await response.text())) {
-    body = await response.json();
-  } else {
-    body = await response.text();
+  let body = rawBody
+  if (rawBody && isJSON(rawBody)) {
+    body = JSON.parse(rawBody)
+  } else if (rawBody && rawBody.includes('\n') && rawBody.trim().startsWith('{')) {
     // If the response looks like NDJSON, try to parse it.
-    if (body && body.includes('\n') && body.trim().startsWith('{')) {
-      const parsed = ndjsonToJson(body)
-      if (parsed.length > 0) {
-        body = parsed
-      }
+    const parsed = ndjsonToJson(rawBody)
+    if (parsed.length > 0) {
+      body = parsed
     }
   }
 
@@ -112,23 +113,18 @@ async function postWithFallback(url, payload) {
  */
 async function searchStops(query, city, lang) {
 
-  const response = await fetchJson(`${API_BASE}/Search`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
+  const response = await postWithFallback(`${API_BASE}/Search`, {
+    Text: query,
+    BoundaryCircle: {
+      Latitude: 53.706462,
+      Longitude: 28.943481,
+      Radius: 99999,
     },
-    body: JSON.stringify({
-      Text: query,
-      BoundaryCircle: {
-        Latitude: 53.706462,
-        Longitude: 28.943481,
-        Radius: 99999,
-      },
-      AdditionalParams: `layers=venue,address&lang=${lang || DEFAULT_LANG}`,
-    }),
-  });
+    AdditionalParams: `layers=venue,address&lang=${lang || DEFAULT_LANG}`,
+  })
 
-  return response.Stops;
+  const stops = response != null && typeof response === 'object' ? response.Stops : null
+  return Array.isArray(stops) ? stops : []
 }
 
 /**
@@ -136,14 +132,8 @@ async function searchStops(query, city, lang) {
  */
 async function getArrivals(stopId, city, lang) {
   console.log(`Fetching arrivals for stopId=${stopId}, city=${city}, lang=${lang}`)
-  const newBody = await fetchJson(`${API_BASE}/GetScoreboard`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      StopId: String(stopId),
-    }),
+  const newBody = await postWithFallback(`${API_BASE}/GetScoreboard`, {
+    StopId: String(stopId),
   })
 
   console.log('Raw arrivals response:', newBody)

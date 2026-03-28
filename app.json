@@ -13,6 +13,7 @@
     "description": "Check public transport schedules from transport-by.app"
   },
   "permissions": [
+    "data:os.internet",
     "data:os.device.info",
     "device:os.local_storage"
   ],
