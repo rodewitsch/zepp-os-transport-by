@@ -346,6 +346,7 @@ Page(
     },
 
     renderArrivalRow(arrival, rowY) {
+      
       const routeColor = getRouteColor(arrival.type)
 
       // Row background
@@ -377,7 +378,7 @@ Page(
         text: arrival.route,
         text_size: FONT_SIZE_BODY,
         color: 0x000000,
-        align_h: hmUI.align.CENTER,
+        align_h: hmUI.align.CENTER_H,
         align_v: hmUI.align.CENTER_V,
       })
 
@@ -418,24 +419,9 @@ Page(
         text: minText,
         text_size: FONT_SIZE_SMALL,
         color: minColor,
-        align_h: hmUI.align.CENTER,
+        align_h: hmUI.align.CENTER_H,
         align_v: hmUI.align.CENTER_V,
       })
-
-      // Type label (bus / tram / etc.)
-      if (arrival.type && arrival.type !== 'bus') {
-        hmUI.createWidget(hmUI.widget.TEXT, {
-          x: MARGIN + 8 + badgeW + 8,
-          y: rowY + 38,
-          w: CONTENT_W - badgeW - 80,
-          h: 20,
-          text: arrival.type,
-          text_size: FONT_SIZE_TINY,
-          color: COLOR_TEXT_DIM,
-          align_h: hmUI.align.LEFT,
-          align_v: hmUI.align.CENTER_V,
-        })
-      }
     },
 
     renderLastUpdated() {

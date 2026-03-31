@@ -234,7 +234,7 @@ Page(
         radius: 8,
         click_func: () => {
           // todo: remove after testing
-          this.state.query = this.state.query || 'детская железная дорога';
+          this.state.query = this.state.query || 'оперный театр';
           if (!this.state.query.trim()) {
             openKeyboard()
             return

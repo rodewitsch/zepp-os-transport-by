@@ -138,15 +138,19 @@ async function getArrivals(stopId, city, lang) {
 
   console.log('Raw arrivals response:', newBody)
 
-  return normalizeArrivals(newBody, stopId)
+  const normalized = normalizeArrivals(newBody, stopId);
+
+  console.log('Normalized arrivals:', normalized)
+
+  return normalized
 }
 
 /**
  * Normalize the arrivals response into a stable schema:
- * { stopId, stopName, arrivals: [{ route, minutes, direction }] }
+ * { stopId, arrivals: [{ route, minutes, direction }] }
  */
 function normalizeArrivals(raw, stopId) {
-  if (!raw) return { stopId, stopName: '', arrivals: [] }
+  if (!raw) return { stopId, arrivals: [] }
 
   // Handle case where fetchJson returned a raw string (e.g. NDJSON that bypassed the parser).
   if (typeof raw === 'string' && raw.length > 0) {
@@ -158,86 +162,20 @@ function normalizeArrivals(raw, stopId) {
     if (parsed.length > 0) raw = parsed
   }
 
-  const stopName =
-    raw.stopName || raw.StopName || raw.name || raw.Name || raw.stop_name || raw.title || ''
-
-  const baseItems = Array.isArray(raw)
-    ? raw
-    // Single GetScoreboard entry wrapped in {result:{...}}
-    : raw.result ? [raw]
-      : raw.arrivals || raw.Arrivals || raw.data || raw.items || raw.vehicles || raw.Scoreboard || []
-
-  // GetScoreboard can return NDJSON lines like {"result": {...}}.
-  const items = baseItems
-    .map((entry) => (entry && entry.result ? entry.result : entry))
-    .filter(Boolean)
-
-  const arrivals = items
+  const arrivals = raw
     .map((a) => {
-      const minutes =
-        a.minutes != null
-          ? Number(a.minutes)
-          : a.minutesLeft != null
-            ? Number(a.minutesLeft)
-            : a.InfoM && Array.isArray(a.InfoM) && a.InfoM.length > 0
-              ? Number(a.InfoM[0])
-              : a.Info && Array.isArray(a.Info) && a.Info.length > 0
-                ? Math.round(Number(a.Info[0]) / 60)
-                : a.eta != null
-                  ? Math.round(Number(a.eta) / 60)
-                  : a.time != null
-                    ? computeMinutesFromTime(a.time)
-                    : null
-
       return {
-        route: String(
-          a.routeNumber ||
-          a.RouteNumber ||
-          a.route_number ||
-          a.number ||
-          a.Number ||
-          a.route ||
-          a.lineNumber ||
-          a.LineNumber ||
-          ''
-        ),
-        direction:
-          a.direction ||
-          a.Direction ||
-          a.endStopName ||
-          a.EndStop ||
-          a.end_stop_name ||
-          a.destination ||
-          a.Destination ||
-          '',
-        minutes,
-        type:
-          a.type ||
-          a.Type ||
-          a.vehicleType ||
-          (a.Type === 1 ? 'bus' : a.Type === 2 ? 'trolleybus' : a.Type === 3 ? 'tram' : 'bus'),
+        route: a.result.Number,
+        minutes: Number(a.result.InfoM[0]),
+        direction: a.result.EndStop,
+        type: a.result.Type,
       }
     })
-    .filter((a) => a.route && a.minutes != null && a.minutes >= 0)
+    .filter((a) => a.route && a.minutes != null && a.minutes >= 0 && a.minutes < 60)
     .sort((a, b) => a.minutes - b.minutes)
     .slice(0, 5)
 
-  return { stopId, stopName, arrivals }
-}
-
-/**
- * Parse a time string like "14:32" into minutes from now.
- */
-function computeMinutesFromTime(timeStr) {
-  if (!timeStr) return null
-  const now = new Date()
-  const [h, m] = timeStr.split(':').map(Number)
-  if (isNaN(h) || isNaN(m)) return null
-  const targetMinutes = h * 60 + m
-  const nowMinutes = now.getHours() * 60 + now.getMinutes()
-  let diff = targetMinutes - nowMinutes
-  if (diff < 0) diff += 24 * 60
-  return diff
+  return { stopId, arrivals }
 }
 
 AppSideService(
