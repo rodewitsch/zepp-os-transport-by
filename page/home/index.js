@@ -84,19 +84,6 @@ Page(
         color: COLOR_CARD_BG,
       })
 
-      // App title
-      hmUI.createWidget(hmUI.widget.TEXT, {
-        x: MARGIN,
-        y: 0,
-        w: SCREEN_W - MARGIN * 2 - 48,
-        h: HEADER_H,
-        text: 'Transport BY',
-        text_size: FONT_SIZE_TITLE,
-        color: COLOR_PRIMARY,
-        align_h: hmUI.align.LEFT,
-        align_v: hmUI.align.CENTER_V,
-      })
-
       // Settings button
       hmUI.createWidget(hmUI.widget.TEXT, {
         x: SCREEN_W - MARGIN - 44,

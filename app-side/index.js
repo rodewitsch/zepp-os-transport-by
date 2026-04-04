@@ -136,13 +136,7 @@ async function getArrivals(stopId, city, lang) {
     StopId: String(stopId),
   })
 
-  console.log('Raw arrivals response:', newBody)
-
-  const normalized = normalizeArrivals(newBody, stopId);
-
-  console.log('Normalized arrivals:', normalized)
-
-  return normalized
+  return normalizeArrivals(newBody, stopId);
 }
 
 /**
@@ -151,6 +145,17 @@ async function getArrivals(stopId, city, lang) {
  */
 function normalizeArrivals(raw, stopId) {
   if (!raw) return { stopId, arrivals: [] }
+
+  function normalizeArrivalText(value) {
+    if (value == null) return ''
+
+    return String(value)
+      // Normalize different quote marks to plain apostrophe for font/layout safety.
+      .replace(/["“”„‟«»]/g, "'")
+      // Collapse duplicate apostrophes: Карастояновой'' -> Карастояновой'
+      .replace(/'{2,}/g, "'")
+      .trim()
+  }
 
   // Handle case where fetchJson returned a raw string (e.g. NDJSON that bypassed the parser).
   if (typeof raw === 'string' && raw.length > 0) {
@@ -165,16 +170,17 @@ function normalizeArrivals(raw, stopId) {
   const arrivals = raw
     .map((a) => {
       return {
-        route: a.result.Number,
+        route: normalizeArrivalText(a.result.Number),
         minutes: Number(a.result.InfoM[0]),
-        direction: a.result.EndStop,
+        direction: normalizeArrivalText(a.result.EndStop),
         type: a.result.Type,
       }
     })
-    .filter((a) => a.route && a.minutes != null && a.minutes >= 0 && a.minutes < 60)
     .sort((a, b) => a.minutes - b.minutes)
+    .filter((a) => a.route && a.minutes != null && a.minutes < 60)
     .slice(0, 5)
 
+    console.log(`Normalized arrivals for stopId=${stopId}:`, arrivals)
   return { stopId, arrivals }
 }
 

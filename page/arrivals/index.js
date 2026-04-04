@@ -39,20 +39,28 @@ const HEADER_H = 56
 const ROW_H = 72
 const ROW_GAP = 4
 const FOOTER_INFO_H = 28
-const UPDATE_INTERVAL_MS = 10000
+const UPDATE_INTERVAL_MS = 30000
 const BRIGHT_TIME_MS = 60 * 60 * 1000
+
+const TRANSPORT_TYPES = {
+  bus: 0,
+  trolleybus: 1,
+  tram: 2,
+  minibus: 3,
+  metro: 4,
+}
 
 // Route type color map
 const TYPE_COLORS = {
-  bus: 0x00c853,
-  trolleybus: 0x2196f3,
-  tram: 0xf44336,
-  minibus: 0xff9800,
-  metro: 0x9c27b0,
+  [TRANSPORT_TYPES.bus]: 0x00c853,
+  [TRANSPORT_TYPES.trolleybus]: 0x2196f3,
+  [TRANSPORT_TYPES.tram]: 0xf44336,
+  [TRANSPORT_TYPES.minibus]: 0xff9800,
+  [TRANSPORT_TYPES.metro]: 0x9c27b0,
 }
 
 function getRouteColor(type) {
-  return TYPE_COLORS[(type || 'bus').toLowerCase()] || TYPE_COLORS.bus
+  return TYPE_COLORS[type] || TYPE_COLORS[TRANSPORT_TYPES.bus]
 }
 
 function pad2(value) {
@@ -192,7 +200,7 @@ Page(
         text: '‹',
         text_size: 32,
         color: COLOR_TEXT,
-        align_h: hmUI.align.CENTER,
+        align_h: hmUI.align.CENTER_H,
         align_v: hmUI.align.CENTER_V,
         click_func: () => back(),
       })
@@ -220,7 +228,7 @@ Page(
         text: '🗑',
         text_size: 20,
         color: COLOR_ERROR,
-        align_h: hmUI.align.CENTER,
+        align_h: hmUI.align.CENTER_H,
         align_v: hmUI.align.CENTER_V,
         click_func: () => {
           if (this.state.index >= 0) {
@@ -263,7 +271,7 @@ Page(
         text: 'Loading...',
         text_size: FONT_SIZE_BODY,
         color: COLOR_TEXT_DIM,
-        align_h: hmUI.align.CENTER,
+        align_h: hmUI.align.CENTER_H,
         align_v: hmUI.align.CENTER_V,
       })
 
@@ -275,7 +283,7 @@ Page(
         text: 'Connecting to transport-by.app',
         text_size: FONT_SIZE_SMALL,
         color: COLOR_TEXT_DIM,
-        align_h: hmUI.align.CENTER,
+        align_h: hmUI.align.CENTER_H,
         align_v: hmUI.align.CENTER_V,
       })
     },
@@ -289,7 +297,7 @@ Page(
         text: '⚠ Failed to load',
         text_size: FONT_SIZE_BODY,
         color: COLOR_WARNING,
-        align_h: hmUI.align.CENTER,
+        align_h: hmUI.align.CENTER_H,
         align_v: hmUI.align.CENTER_V,
       })
 
@@ -301,7 +309,7 @@ Page(
         text: this.state.error,
         text_size: FONT_SIZE_SMALL,
         color: COLOR_TEXT_DIM,
-        align_h: hmUI.align.CENTER,
+        align_h: hmUI.align.CENTER_H,
         align_v: hmUI.align.TOP,
         text_style: hmUI.text_style.WRAP,
       })
@@ -316,7 +324,7 @@ Page(
         text: 'No buses coming',
         text_size: FONT_SIZE_BODY,
         color: COLOR_TEXT_DIM,
-        align_h: hmUI.align.CENTER,
+        align_h: hmUI.align.CENTER_H,
         align_v: hmUI.align.CENTER_V,
       })
 
@@ -328,25 +336,25 @@ Page(
         text: 'Service may not run now',
         text_size: FONT_SIZE_SMALL,
         color: COLOR_TEXT_DIM,
-        align_h: hmUI.align.CENTER,
+        align_h: hmUI.align.CENTER_H,
         align_v: hmUI.align.CENTER_V,
       })
     },
 
     renderArrivalsRows() {
       const startY = HEADER_H + 8
-      const arrivals = this.state.arrivals.slice(0, MAX_ARRIVALS_SHOWN)
+      const arrivals = this.state.arrivals.slice(0, MAX_ARRIVALS_SHOWN);
 
       arrivals.forEach((arrival, i) => {
-        const rowY = startY + i * (ROW_H + ROW_GAP)
-        if (rowY + ROW_H > SCREEN_H - FOOTER_INFO_H - 24) return
-
-        this.renderArrivalRow(arrival, rowY)
-      })
+        const rowY = startY + i * (ROW_H + ROW_GAP);
+        if (rowY + ROW_H > SCREEN_H - FOOTER_INFO_H - 24) return;
+        logger.log('Rendering arrival:', arrival);
+        this.renderArrivalRow(arrival, rowY);
+      });
     },
 
     renderArrivalRow(arrival, rowY) {
-      
+
       const routeColor = getRouteColor(arrival.type)
 
       // Row background
@@ -398,18 +406,16 @@ Page(
 
       // Minutes remaining
       const minText =
-        arrival.minutes === 0
+        arrival.minutes < 1
           ? 'Now'
-          : arrival.minutes === 1
-          ? '1 min'
           : `${arrival.minutes} min`
 
       const minColor =
-        arrival.minutes === 0
+        arrival.minutes < 1
           ? COLOR_PRIMARY
           : arrival.minutes <= 2
-          ? COLOR_WARNING
-          : COLOR_TEXT
+            ? COLOR_WARNING
+            : COLOR_TEXT
 
       hmUI.createWidget(hmUI.widget.TEXT, {
         x: MARGIN + CONTENT_W - 70,
@@ -439,11 +445,16 @@ Page(
     },
 
     fetchArrivals(silent = false) {
-      const stop = this.state.stop
-      if (!stop) return
+      const stop = this.state.stop;
+      if (!stop) return;
+
+      logger.log('Fetching arrivals for stop:', JSON.stringify(stop))
+
       const stopId = String(
         stop.id || stop.stopId || stop.StopId || stop.stop_id || ''
       )
+
+      logger.log('Fetching arrivals for stop ID:', stopId)
 
       if (!stopId) {
         this.state.loading = false
@@ -476,7 +487,6 @@ Page(
           },
         })
       } catch (err) {
-        console.error('Arrivals request setup error:', err)
         logger.log('Arrivals request setup error:', err)
         this.state.loading = false
         this.state.error = 'Failed to start request. Try again.'
@@ -488,7 +498,6 @@ Page(
 
       requestPromise
         .then((data) => {
-          logger.log('Arrivals received:', JSON.stringify(data))
           this.state.loading = false
 
           if (data.error) {
@@ -496,18 +505,15 @@ Page(
             this.state.arrivals = []
           } else {
             this.state.arrivals = data.arrivals || []
-            this.state.stopName =
-              data.stopName ||
-              (stop && (stop.name || stop.stopName || stop.StopName || stop.title)) ||
-              ''
+            this.state.stopName = stop.StopName || '';
             this.state.error = null
           }
 
           this.state.lastUpdated = new Date()
-          this.renderContent()
+          logger.log('Start rendering')
+          this.renderContent();
         })
         .catch((err) => {
-          console.error('Arrivals error:', err)
           logger.log('Arrivals error:', err)
           this.state.loading = false
           this.state.error = 'Connection failed. Check phone internet.'
