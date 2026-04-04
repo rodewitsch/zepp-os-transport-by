@@ -17,14 +17,11 @@ import {
   CONTENT_W,
   COLOR_BG,
   COLOR_PRIMARY,
-  COLOR_ACCENT,
   COLOR_TEXT,
   COLOR_TEXT_DIM,
   COLOR_CARD_BG,
   COLOR_WARNING,
   COLOR_ERROR,
-  COLOR_SEPARATOR,
-  FONT_SIZE_TITLE,
   FONT_SIZE_BODY,
   FONT_SIZE_SMALL,
   FONT_SIZE_TINY,
@@ -35,7 +32,7 @@ import { removeFavorite } from '../../utils/storage'
 const logger = Logger.getLogger('arrivals')
 
 // Layout
-const HEADER_H = 56
+const HEADER_H = 10
 const ROW_H = 72
 const ROW_GAP = 4
 const FOOTER_INFO_H = 28
@@ -113,7 +110,7 @@ Page(
     },
 
     build() {
-      this.renderSkeleton()
+      hmUI.setStatusBarVisible(false);
 
       if (this.state.stop) {
         this.fetchArrivals(false)
@@ -138,20 +135,6 @@ Page(
       }
     },
 
-    renderSkeleton() {
-      // Background
-      hmUI.createWidget(hmUI.widget.FILL_RECT, {
-        x: 0,
-        y: 0,
-        w: SCREEN_W,
-        h: SCREEN_H,
-        color: COLOR_BG,
-      })
-
-      this.renderHeader()
-      this.renderFooterTimeWidget()
-    },
-
     renderFooterTimeWidget() {
       if (this.state.footerTimeText) return
 
@@ -173,69 +156,6 @@ Page(
         color: COLOR_TEXT_DIM,
         align_h: hmUI.align.CENTER_H,
         align_v: hmUI.align.CENTER_V,
-      })
-    },
-
-    renderHeader() {
-      const stop = this.state.stop
-      const stopName =
-        this.state.stopName ||
-        (stop && (stop.name || stop.stopName || stop.StopName || stop.title)) ||
-        'Stop'
-
-      hmUI.createWidget(hmUI.widget.FILL_RECT, {
-        x: 0,
-        y: 0,
-        w: SCREEN_W,
-        h: HEADER_H,
-        color: COLOR_CARD_BG,
-      })
-
-      // Back button
-      hmUI.createWidget(hmUI.widget.TEXT, {
-        x: 4,
-        y: 0,
-        w: 40,
-        h: HEADER_H,
-        text: '‹',
-        text_size: 32,
-        color: COLOR_TEXT,
-        align_h: hmUI.align.CENTER_H,
-        align_v: hmUI.align.CENTER_V,
-        click_func: () => back(),
-      })
-
-      // Stop name
-      hmUI.createWidget(hmUI.widget.TEXT, {
-        x: 44,
-        y: 0,
-        w: SCREEN_W - 88,
-        h: HEADER_H,
-        text: stopName,
-        text_size: FONT_SIZE_BODY,
-        color: COLOR_TEXT,
-        align_h: hmUI.align.LEFT,
-        align_v: hmUI.align.CENTER_V,
-        text_style: hmUI.text_style.ELLIPSIS,
-      })
-
-      // Delete / remove favourite button
-      hmUI.createWidget(hmUI.widget.TEXT, {
-        x: SCREEN_W - 44,
-        y: 0,
-        w: 44,
-        h: HEADER_H,
-        text: '🗑',
-        text_size: 20,
-        color: COLOR_ERROR,
-        align_h: hmUI.align.CENTER_H,
-        align_v: hmUI.align.CENTER_V,
-        click_func: () => {
-          if (this.state.index >= 0) {
-            removeFavorite(this.state.index)
-          }
-          back()
-        },
       })
     },
 

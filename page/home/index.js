@@ -13,9 +13,6 @@ import {
   COLOR_TEXT_DIM,
   COLOR_CARD_BG,
   COLOR_ERROR,
-  COLOR_SEPARATOR,
-  COLOR_ACCENT,
-  FONT_SIZE_TITLE,
   FONT_SIZE_BODY,
   FONT_SIZE_SMALL,
   FONT_SIZE_TINY,
@@ -26,7 +23,7 @@ import { loadFavorites, removeFavorite } from '../../utils/storage'
 const logger = Logger.getLogger('home')
 
 // Layout constants
-const HEADER_H = 60
+const HEADER_H = 10
 const CARD_H = 76
 const CARD_GAP = 8
 const ADD_BTN_H = 56
@@ -50,7 +47,9 @@ Page(
     },
 
     renderPage() {
-      const favorites = this.state.favorites
+      const favorites = this.state.favorites;
+
+      hmUI.setStatusBarVisible(false);
 
       // Background
       hmUI.createWidget(hmUI.widget.FILL_RECT, {
@@ -61,9 +60,6 @@ Page(
         color: COLOR_BG,
       })
 
-      // Header
-      this.renderHeader()
-
       if (favorites.length === 0) {
         this.renderEmptyState()
       } else {
@@ -72,35 +68,6 @@ Page(
 
       // Add button at bottom
       this.renderAddButton(favorites.length)
-    },
-
-    renderHeader() {
-      // Header background
-      hmUI.createWidget(hmUI.widget.FILL_RECT, {
-        x: 0,
-        y: 0,
-        w: SCREEN_W,
-        h: HEADER_H,
-        color: COLOR_CARD_BG,
-      })
-
-      // Settings button
-      hmUI.createWidget(hmUI.widget.TEXT, {
-        x: SCREEN_W - MARGIN - 44,
-        y: 0,
-        w: 44,
-        h: HEADER_H,
-        text: '⚙',
-        text_size: 24,
-        color: COLOR_TEXT_DIM,
-        align_h: hmUI.align.CENTER_H,
-        align_v: hmUI.align.CENTER_V,
-        click_func: () => {
-          push({
-            url: 'page/settings/index',
-          })
-        },
-      })
     },
 
     renderEmptyState() {

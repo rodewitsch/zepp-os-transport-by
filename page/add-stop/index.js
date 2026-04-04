@@ -14,8 +14,6 @@ import {
   COLOR_TEXT_DIM,
   COLOR_CARD_BG,
   COLOR_ERROR,
-  COLOR_WARNING,
-  FONT_SIZE_TITLE,
   FONT_SIZE_BODY,
   FONT_SIZE_SMALL,
   FONT_SIZE_TINY,
@@ -26,7 +24,7 @@ import { addFavorite, loadFavorites } from '../../utils/storage'
 const logger = Logger.getLogger('add-stop')
 
 // Layout
-const HEADER_H = 56
+const HEADER_H = 10
 const INPUT_H = 52
 const RESULT_ROW_H = 62
 const RESULT_GAP = 4
@@ -50,6 +48,8 @@ Page(
     },
 
     renderPage() {
+      hmUI.setStatusBarVisible(false);
+
       // Background
       hmUI.createWidget(hmUI.widget.FILL_RECT, {
         x: 0,
@@ -59,122 +59,16 @@ Page(
         color: COLOR_BG,
       })
 
-      this.renderHeader()
-      this.renderCitySelector()
       this.renderSearchSection()
       this.renderResults()
     },
 
-    renderHeader() {
-      hmUI.createWidget(hmUI.widget.FILL_RECT, {
-        x: 0,
-        y: 0,
-        w: SCREEN_W,
-        h: HEADER_H,
-        color: COLOR_CARD_BG,
-      })
-
-      // Back
-      hmUI.createWidget(hmUI.widget.BUTTON, {
-        x: 4,
-        y: 0,
-        w: 44,
-        h: HEADER_H,
-        text: '‹',
-        text_size: 32,
-        normal_color: COLOR_CARD_BG,
-        press_color: 0x2a2a2a,
-        color: COLOR_TEXT,
-        radius: 8,
-        click_func: () => back(),
-      })
-
-      // Title
-      hmUI.createWidget(hmUI.widget.TEXT, {
-        x: 48,
-        y: 0,
-        w: SCREEN_W - 48,
-        h: HEADER_H,
-        text: 'Add favourite stop',
-        text_size: FONT_SIZE_BODY,
-        color: COLOR_TEXT,
-        align_h: hmUI.align.LEFT,
-        align_v: hmUI.align.CENTER_V,
-      })
-    },
-
-    renderCitySelector() {
-      const sectionY = HEADER_H + 8
-      const cities = [
-        { id: 'minsk', label: 'Minsk' },
-        { id: 'brest', label: 'Brest' },
-        { id: 'grodno', label: 'Grodno' },
-        { id: 'gomel', label: 'Gomel' },
-        { id: 'vitebsk', label: 'Vitebsk' },
-        { id: 'mogilev', label: 'Mogilev' },
-      ]
-
-      hmUI.createWidget(hmUI.widget.TEXT, {
-        x: MARGIN,
-        y: sectionY,
-        w: CONTENT_W,
-        h: 22,
-        text: 'City:',
-        text_size: FONT_SIZE_SMALL,
-        color: COLOR_TEXT_DIM,
-        align_h: hmUI.align.LEFT,
-        align_v: hmUI.align.CENTER_V,
-      })
-
-      // City buttons row
-      const btnW = 80
-      const btnH = 32
-      const startY = sectionY + 26
-      cities.forEach((city, i) => {
-        const col = i % 4
-        const row = Math.floor(i / 4)
-        const btnX = MARGIN + col * (btnW + 4)
-        const btnY = startY + row * (btnH + 4)
-        const active = this.state.selectedCity === city.id
-
-        hmUI.createWidget(hmUI.widget.BUTTON, {
-          x: btnX,
-          y: btnY,
-          w: btnW,
-          h: btnH,
-          normal_color: active ? COLOR_PRIMARY : COLOR_CARD_BG,
-          press_color: active ? 0x00a884 : 0x2a2a2a,
-          text: city.label,
-          text_size: FONT_SIZE_TINY,
-          color: active ? 0x000000 : COLOR_TEXT,
-          radius: 6,
-          click_func: () => {
-            this.state.selectedCity = city.id
-            this.renderPage()
-          },
-        })
-      })
-    },
-
     renderSearchSection() {
       // Two rows of city selector (3 cities each)
-      const sectionY = HEADER_H + 8 + 22 + 26 + 32 + 4 + 32 + 12
-
-      // Search label
-      hmUI.createWidget(hmUI.widget.TEXT, {
-        x: MARGIN,
-        y: sectionY,
-        w: CONTENT_W,
-        h: 22,
-        text: 'Stop name:',
-        text_size: FONT_SIZE_SMALL,
-        color: COLOR_TEXT_DIM,
-        align_h: hmUI.align.LEFT,
-        align_v: hmUI.align.CENTER_V,
-      })
+      const sectionY = HEADER_H;
 
       // Text input widget
-      const inputY = sectionY + 26
+      const inputY = sectionY;
       hmUI.createWidget(hmUI.widget.FILL_RECT, {
         x: MARGIN,
         y: inputY,
@@ -276,7 +170,7 @@ Page(
 
       // Two rows of city selector + search section height
       const headerOffset =
-        HEADER_H + 8 + 22 + 26 + 32 + 4 + 32 + 12 + 22 + 26 + INPUT_H + 36
+        HEADER_H + INPUT_H + 10
 
       const maxRows = Math.floor(
         (SCREEN_H - headerOffset - 8) / (RESULT_ROW_H + RESULT_GAP)
@@ -311,8 +205,6 @@ Page(
         click_func: addStop,
       })
 
-      console.log(stop);
-
       // Stop name
       hmUI.createWidget(hmUI.widget.TEXT, {
         x: MARGIN + 10,
@@ -327,6 +219,23 @@ Page(
         text_style: hmUI.text_style.ELLIPSIS,
         click_func: addStop,
       })
+
+      hmUI.createWidget(hmUI.widget.TEXT, {
+        x: MARGIN + 10,
+        y: rowY + 36,
+        w: CONTENT_W - 60,
+        h: 26,
+        text: stop.Address,
+        text_size: FONT_SIZE_SMALL,
+        color: COLOR_TEXT,
+        align_h: hmUI.align.LEFT,
+        align_v: hmUI.align.CENTER_V,
+        text_style: hmUI.text_style.ELLIPSIS,
+        click_func: addStop,
+      })
+
+      logger.log(`Rendering result row for stopId=${stop.StopID}, name="${stop.StopName}"`);
+      logger.log(JSON.stringify(stop));
 
       // Routes
       const routeStr = (stop.routes || []).slice(0, 5).join('  ')

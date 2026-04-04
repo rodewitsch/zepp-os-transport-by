@@ -186,13 +186,7 @@ function normalizeArrivals(raw, stopId) {
 
 AppSideService(
   BaseSideService({
-    onInit() {
-      console.log('Transport BY side service init')
-    },
-
     async onRequest(req, res) {
-      console.log('Transport BY side service request:', req.method)
-
       try {
         if (req.method === 'SEARCH_STOPS') {
           const { query, city, lang } = req.params || {}
@@ -215,16 +209,9 @@ AppSideService(
           res(null, { error: `Unknown method: ${req.method}` })
         }
       } catch (err) {
-        console.log('Transport BY side service error:', err)
         const message = err && err.message ? err.message : String(err)
         res(null, { error: `side:${req && req.method ? req.method : 'UNKNOWN'}: ${message}` })
       }
-    },
-
-    onRun() { },
-
-    onDestroy() {
-      console.log('Transport BY side service destroyed')
     },
   })
 )
