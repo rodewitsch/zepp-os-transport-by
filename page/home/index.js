@@ -18,7 +18,7 @@ import {
   FONT_SIZE_TINY,
   MAX_FAVORITES,
 } from '../../utils/constants'
-import { loadFavorites, removeFavorite } from '../../utils/storage'
+import { loadFavorites, saveFavorites, removeFavorite } from '../../utils/storage'
 
 const logger = Logger.getLogger('home')
 
@@ -44,6 +44,41 @@ Page(
     build() {
       this.state.favorites = loadFavorites()
       this.renderPage()
+
+      // Sync favorites from Settings App (settingsStorage → device LocalStorage)
+      this.request({ method: 'GET_FAVORITES', params: {} })
+        .then((data) => {
+          const remoteFavs = data && data.favorites ? data.favorites : []
+          if (remoteFavs.length > 0) {
+            // Merge: add remote stops not yet in local
+            const localFavs = loadFavorites()
+            let changed = false
+            remoteFavs.forEach((rf) => {
+              const rid = String(rf.StopID || rf.StopId || rf.id || '')
+              const exists = localFavs.some((lf) => {
+                const lid = String(lf.StopID || lf.StopId || lf.id || '')
+                return lid === rid
+              })
+              if (!exists && rid) {
+                localFavs.push(rf)
+                changed = true
+              }
+            })
+            if (changed) {
+              saveFavorites(localFavs)
+              this.state.favorites = localFavs
+              this.renderPage()
+            }
+          }
+          // Push local favorites to settingsStorage so Settings App is in sync
+          this.request({
+            method: 'SAVE_FAVORITES',
+            params: { favorites: loadFavorites() },
+          }).catch(() => {})
+        })
+        .catch((err) => {
+          logger.log('Favorites sync failed (offline?):', err)
+        })
     },
 
     renderPage() {
@@ -148,6 +183,10 @@ Page(
         })
       const removeStop = () => {
         this.state.favorites = removeFavorite(index)
+        this.request({
+          method: 'SAVE_FAVORITES',
+          params: { favorites: this.state.favorites },
+        }).catch(() => {})
         this.renderPage()
       }
       const contentW = CONTENT_W - CARD_ACTION_W - 12

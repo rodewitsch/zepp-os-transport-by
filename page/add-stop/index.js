@@ -191,6 +191,11 @@ Page(
           return
         }
         addFavorite(stop)
+        // Sync to settingsStorage so Settings App sees the change
+        this.request({
+          method: 'SAVE_FAVORITES',
+          params: { favorites: loadFavorites() },
+        }).catch(() => {})
         back()
       }
 

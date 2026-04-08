@@ -186,6 +186,24 @@ function normalizeArrivals(raw, stopId) {
 
 AppSideService(
   BaseSideService({
+    onInit() {
+      settings.settingsStorage.addListener('change', async ({ key, newValue }) => {
+        // Handle search requests from the Settings App
+        if (key === 'searchRequest' && newValue) {
+          try {
+            const { query, city } = JSON.parse(newValue)
+            const stops = await searchStops(query, city, 'ru')
+            settings.settingsStorage.setItem('searchResults', JSON.stringify(stops))
+          } catch (e) {
+            console.log('Settings search error:', e)
+            settings.settingsStorage.setItem('searchResults', JSON.stringify([]))
+          } finally {
+            settings.settingsStorage.setItem('searching', 'false')
+          }
+        }
+      })
+    },
+
     async onRequest(req, res) {
       try {
         if (req.method === 'SEARCH_STOPS') {
@@ -204,6 +222,22 @@ AppSideService(
           }
           const data = await getArrivals(stopId, city, lang)
           res(null, data)
+
+        } else if (req.method === 'GET_FAVORITES') {
+          // Return favorites from settingsStorage (set by Settings App)
+          try {
+            const raw = settings.settingsStorage.getItem('favorites')
+            const favorites = raw ? JSON.parse(raw) : []
+            res(null, { favorites })
+          } catch (e) {
+            res(null, { favorites: [] })
+          }
+
+        } else if (req.method === 'SAVE_FAVORITES') {
+          // Device → settingsStorage sync (so Settings App sees device changes)
+          const { favorites } = req.params || {}
+          settings.settingsStorage.setItem('favorites', JSON.stringify(favorites || []))
+          res(null, { ok: true })
 
         } else {
           res(null, { error: `Unknown method: ${req.method}` })
