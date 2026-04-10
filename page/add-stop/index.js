@@ -26,7 +26,8 @@ const logger = Logger.getLogger('add-stop')
 // Layout
 const HEADER_H = 10
 const INPUT_H = 52
-const RESULT_ROW_H = 62
+const ROUTE_LINE_H = 18
+const RESULT_BASE_H = 52  // name + address
 const RESULT_GAP = 4
 
 Page(
@@ -168,21 +169,33 @@ Page(
     renderResults() {
       if (this.state.results.length === 0) return
 
-      // Two rows of city selector + search section height
-      const headerOffset =
-        HEADER_H + INPUT_H + 10
+      const headerOffset = HEADER_H + INPUT_H + 10
+      let curY = headerOffset
 
-      const maxRows = Math.floor(
-        (SCREEN_H - headerOffset - 8) / (RESULT_ROW_H + RESULT_GAP)
-      )
-
-      this.state.results.slice(0, maxRows).forEach((stop, i) => {
-        const rowY = headerOffset + i * (RESULT_ROW_H + RESULT_GAP)
-        this.renderResultRow(stop, rowY)
+      this.state.results.forEach((stop) => {
+        const rowH = this.renderResultRow(stop, curY)
+        curY += rowH + RESULT_GAP
       })
     },
 
+    getRouteLines(stop) {
+      if (!stop.Routes || !Array.isArray(stop.Routes)) return []
+      const seen = new Set()
+      const lines = []
+      for (const item of stop.Routes) {
+        const r = item.result || item
+        if (r.Number && r.FinishStopName && !seen.has(r.Number)) {
+          seen.add(r.Number)
+          lines.push(r.Number + ' → ' + r.FinishStopName)
+        }
+      }
+      return lines
+    },
+
     renderResultRow(stop, rowY) {
+      const routeLines = this.getRouteLines(stop)
+      const rowH = RESULT_BASE_H + routeLines.length * ROUTE_LINE_H + 8
+
       const addStop = () => {
         const favorites = loadFavorites()
         if (favorites.length >= MAX_FAVORITES) {
@@ -204,7 +217,7 @@ Page(
         x: MARGIN,
         y: rowY,
         w: CONTENT_W,
-        h: RESULT_ROW_H,
+        h: rowH,
         color: COLOR_CARD_BG,
         radius: 8,
         click_func: addStop,
@@ -213,9 +226,9 @@ Page(
       // Stop name
       hmUI.createWidget(hmUI.widget.TEXT, {
         x: MARGIN + 10,
-        y: rowY + 8,
+        y: rowY + 6,
         w: CONTENT_W - 60,
-        h: 26,
+        h: 22,
         text: stop.StopName,
         text_size: FONT_SIZE_SMALL,
         color: COLOR_TEXT,
@@ -225,46 +238,44 @@ Page(
         click_func: addStop,
       })
 
+      // Address
       hmUI.createWidget(hmUI.widget.TEXT, {
         x: MARGIN + 10,
-        y: rowY + 36,
+        y: rowY + 28,
         w: CONTENT_W - 60,
-        h: 26,
+        h: 22,
         text: stop.Address,
-        text_size: FONT_SIZE_SMALL,
-        color: COLOR_TEXT,
+        text_size: FONT_SIZE_TINY,
+        color: COLOR_TEXT_DIM,
         align_h: hmUI.align.LEFT,
         align_v: hmUI.align.CENTER_V,
         text_style: hmUI.text_style.ELLIPSIS,
         click_func: addStop,
       })
 
-      logger.log(`Rendering result row for stopId=${stop.StopID}, name="${stop.StopName}"`);
-      logger.log(JSON.stringify(stop));
-
-      // Routes
-      const routeStr = (stop.routes || []).slice(0, 5).join('  ')
-      if (routeStr) {
+      // Route lines (one per row)
+      routeLines.forEach((line, i) => {
         hmUI.createWidget(hmUI.widget.TEXT, {
           x: MARGIN + 10,
-          y: rowY + 38,
+          y: rowY + RESULT_BASE_H + i * ROUTE_LINE_H,
           w: CONTENT_W - 60,
-          h: 18,
-          text: routeStr,
+          h: ROUTE_LINE_H,
+          text: line,
           text_size: FONT_SIZE_TINY,
           color: COLOR_ACCENT,
           align_h: hmUI.align.LEFT,
           align_v: hmUI.align.CENTER_V,
+          text_style: hmUI.text_style.ELLIPSIS,
           click_func: addStop,
         })
-      }
+      })
 
       // Add button (+)
       hmUI.createWidget(hmUI.widget.BUTTON, {
         x: MARGIN + CONTENT_W - 50,
         y: rowY + 8,
         w: 42,
-        h: RESULT_ROW_H - 16,
+        h: rowH - 16,
         normal_color: 0x15351d,
         press_color: 0x1f4d2b,
         text: '+',
@@ -273,6 +284,8 @@ Page(
         radius: 8,
         click_func: addStop,
       })
+
+      return rowH
     },
 
     performSearch() {

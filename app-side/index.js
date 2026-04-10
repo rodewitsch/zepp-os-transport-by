@@ -111,7 +111,7 @@ async function postWithFallback(url, payload) {
 /**
  * Search for bus stops by name or address.
  */
-async function searchStops(query, city, lang) {
+async function searchStops(query, lang) {
 
   const response = await postWithFallback(`${API_BASE}/Search`, {
     Text: query,
@@ -124,14 +124,42 @@ async function searchStops(query, city, lang) {
   })
 
   const stops = response != null && typeof response === 'object' ? response.Stops : null
-  return Array.isArray(stops) ? stops : []
+  const processedStops = Array.isArray(stops) ? stops : [];
+
+  for (const stop of processedStops) {
+    try {
+      const routesRaw = await postWithFallback(`${API_BASE}/GetStopRouts`, {
+        StopId: String(stop.StopId),
+      });
+
+      const items = Array.isArray(routesRaw) ? routesRaw : []
+      // Build a compact summary: "91→Веснинка  100→Минск-Южный"
+      const seen = new Set()
+      const parts = []
+      for (const item of items) {
+        const r = item.result || item
+        if (r.Number && r.FinishStopName && !seen.has(r.Number)) {
+          seen.add(r.Number)
+          parts.push(r.Number + '→' + r.FinishStopName)
+        }
+      }
+      stop.RoutesSummary = parts.join('  ')
+      stop.Routes = items
+    } catch (e) {
+      console.log('GetStopRouts failed for', stop.StopId, e)
+      stop.RoutesSummary = ''
+      stop.Routes = []
+    }
+  }
+
+  return processedStops;
 }
 
 /**
  * Get arrival predictions for a specific stop.
  */
-async function getArrivals(stopId, city, lang) {
-  console.log(`Fetching arrivals for stopId=${stopId}, city=${city}, lang=${lang}`)
+async function getArrivals(stopId, lang) {
+  console.log(`Fetching arrivals for stopId=${stopId}, lang=${lang}`)
   const newBody = await postWithFallback(`${API_BASE}/GetScoreboard`, {
     StopId: String(stopId),
   })
@@ -159,12 +187,12 @@ function normalizeArrivals(raw, stopId) {
 
   // Handle case where fetchJson returned a raw string (e.g. NDJSON that bypassed the parser).
   if (typeof raw === 'string' && raw.length > 0) {
-    const lines = raw.split('\n').map(function (l) { return l.trim() }).filter(Boolean)
-    const parsed = []
-    for (let i = 0; i < lines.length; i += 1) {
-      try { parsed.push(JSON.parse(lines[i])) } catch (_e) { }
+    try {
+      raw = ndjsonToJson(raw)
+    } catch (e) {
+      console.log('Error parsing NDJSON arrivals:', e)
+      return { stopId, arrivals: [] }
     }
-    if (parsed.length > 0) raw = parsed
   }
 
   const arrivals = raw
@@ -180,7 +208,7 @@ function normalizeArrivals(raw, stopId) {
     .filter((a) => a.route && a.minutes != null && a.minutes < 60)
     .slice(0, 5)
 
-    console.log(`Normalized arrivals for stopId=${stopId}:`, arrivals)
+  console.log(`Normalized arrivals for stopId=${stopId}:`, arrivals)
   return { stopId, arrivals }
 }
 
@@ -191,8 +219,8 @@ AppSideService(
         // Handle search requests from the Settings App
         if (key === 'searchRequest' && newValue) {
           try {
-            const { query, city } = JSON.parse(newValue)
-            const stops = await searchStops(query, city, 'ru')
+            const { query } = JSON.parse(newValue)
+            const stops = await searchStops(query, 'ru')
             settings.settingsStorage.setItem('searchResults', JSON.stringify(stops))
           } catch (e) {
             console.log('Settings search error:', e)
@@ -207,20 +235,20 @@ AppSideService(
     async onRequest(req, res) {
       try {
         if (req.method === 'SEARCH_STOPS') {
-          const { query, city, lang } = req.params || {}
+          const { query, lang } = req.params || {}
           if (!query) {
             return res(null, { error: 'query is required', stops: [] })
           }
-          const stops = await searchStops(query, city, lang)
+          const stops = await searchStops(query, lang)
           console.log(stops);
           res(null, { stops })
 
         } else if (req.method === 'GET_ARRIVALS') {
-          const { stopId, city, lang } = req.params || {}
+          const { stopId, lang } = req.params || {}
           if (!stopId) {
             return res(null, { error: 'stopId is required', arrivals: [] })
           }
-          const data = await getArrivals(stopId, city, lang)
+          const data = await getArrivals(stopId, lang)
           res(null, data)
 
         } else if (req.method === 'GET_FAVORITES') {

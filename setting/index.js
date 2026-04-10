@@ -35,6 +35,12 @@ AppSettingsPage({
               { style: { fontSize: '12px', color: '#888' } },
               stop.Address || ''
             ),
+            stop.RoutesSummary
+              ? Text(
+                  { style: { fontSize: '11px', color: '#2196f3', marginTop: '4px' } },
+                  stop.RoutesSummary
+                )
+              : undefined,
           ]),
           alreadyAdded
             ? Text({ style: { color: '#00c853', fontSize: '12px' } }, '★ Добавлено')
