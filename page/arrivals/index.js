@@ -28,6 +28,7 @@ import {
   MAX_ARRIVALS_SHOWN,
 } from '../../utils/constants'
 import { removeFavorite } from '../../utils/storage'
+import { createSpinner } from '../../utils/spinner'
 
 const logger = Logger.getLogger('arrivals')
 
@@ -80,6 +81,7 @@ Page(
       lastUpdated: null,
       arrivalsTimer: null,
       footerTimeText: null,
+      spinner: null,
     },
 
     onInit(paramsStr) {
@@ -138,19 +140,11 @@ Page(
     renderFooterTimeWidget() {
       if (this.state.footerTimeText) return
 
-      hmUI.createWidget(hmUI.widget.FILL_RECT, {
-        x: 0,
-        y: SCREEN_H - FOOTER_INFO_H,
-        w: SCREEN_W,
-        h: FOOTER_INFO_H,
-        color: COLOR_BG,
-      })
-
       this.state.footerTimeText = hmUI.createWidget(hmUI.widget.TEXT, {
         x: 0,
-        y: SCREEN_H - FOOTER_INFO_H,
+        y: HEADER_H,
         w: SCREEN_W,
-        h: 20,
+        h: FOOTER_INFO_H,
         text: 'Updated: --:--:--',
         text_size: FONT_SIZE_TINY,
         color: COLOR_TEXT_DIM,
@@ -160,6 +154,12 @@ Page(
     },
 
     renderContent() {
+      // Stop any active spinner
+      if (this.state.spinner) {
+        this.state.spinner.stop()
+        this.state.spinner = null
+      }
+
       // Clear below header
       hmUI.createWidget(hmUI.widget.FILL_RECT, {
         x: 0,
@@ -178,22 +178,14 @@ Page(
       } else {
         this.renderArrivalsRows()
       }
-
-      this.renderLastUpdated()
     },
 
     renderLoading() {
-      hmUI.createWidget(hmUI.widget.TEXT, {
-        x: MARGIN,
-        y: HEADER_H + 80,
-        w: CONTENT_W,
-        h: 40,
-        text: 'Loading...',
-        text_size: FONT_SIZE_BODY,
-        color: COLOR_TEXT_DIM,
-        align_h: hmUI.align.CENTER_H,
-        align_v: hmUI.align.CENTER_V,
-      })
+      if (this.state.spinner) this.state.spinner.stop()
+      this.state.spinner = createSpinner(
+        SCREEN_W / 2, HEADER_H + 100,
+        16, 3, COLOR_TEXT
+      )
 
       hmUI.createWidget(hmUI.widget.TEXT, {
         x: MARGIN,
@@ -262,12 +254,14 @@ Page(
     },
 
     renderArrivalsRows() {
-      const startY = HEADER_H + 8
-      const arrivals = this.state.arrivals.slice(0, MAX_ARRIVALS_SHOWN);
+      // Updated time at top
+      this.renderLastUpdated()
+
+      const startY = HEADER_H + FOOTER_INFO_H + 4
+      const arrivals = this.state.arrivals;
 
       arrivals.forEach((arrival, i) => {
         const rowY = startY + i * (ROW_H + ROW_GAP);
-        if (rowY + ROW_H > SCREEN_H - FOOTER_INFO_H - 24) return;
         logger.log('Rendering arrival:', arrival);
         this.renderArrivalRow(arrival, rowY);
       });
@@ -313,9 +307,9 @@ Page(
       // Direction text
       hmUI.createWidget(hmUI.widget.TEXT, {
         x: MARGIN + 8 + badgeW + 8,
-        y: rowY + 10,
+        y: rowY,
         w: CONTENT_W - badgeW - 80,
-        h: 24,
+        h: ROW_H,
         text: arrival.direction || 'via this stop',
         text_size: FONT_SIZE_SMALL,
         color: COLOR_TEXT,
@@ -445,6 +439,7 @@ Page(
 
     onDestroy() {
       this.stopAutoRefresh()
+      if (this.state.spinner) this.state.spinner.stop()
 
       try {
         resetPageBrightTime()

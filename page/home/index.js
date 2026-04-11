@@ -148,31 +148,11 @@ Page(
 
     renderFavoritesList(favorites) {
       const listTop = HEADER_H + 8
-      const maxVisible = Math.floor(
-        (SCREEN_H - HEADER_H - ADD_BTN_H - 20) / (CARD_H + CARD_GAP)
-      )
 
-      // Scrollable list
       favorites.slice(0, MAX_FAVORITES).forEach((stop, index) => {
         const cardY = listTop + index * (CARD_H + CARD_GAP)
-        if (cardY + CARD_H > SCREEN_H - ADD_BTN_H - 28) return
         this.renderStopCard(stop, index, cardY)
       })
-
-      // Scroll hint if more items
-      if (favorites.length > maxVisible) {
-        hmUI.createWidget(hmUI.widget.TEXT, {
-          x: 0,
-          y: SCREEN_H - ADD_BTN_H - 36,
-          w: SCREEN_W,
-          h: 18,
-          text: `${favorites.length} stops – scroll for more`,
-          text_size: FONT_SIZE_SMALL - 2,
-          color: COLOR_TEXT_DIM,
-          align_h: hmUI.align.CENTER_H,
-          align_v: hmUI.align.CENTER_V,
-        })
-      }
     },
 
     renderStopCard(stop, index, cardY) {
@@ -192,7 +172,18 @@ Page(
       const contentW = CONTENT_W - CARD_ACTION_W - 12
       const stopName = stop.StopName || 'Unknown stop'
       const address = stop.Address || ''
-      const routeStr = stop.Routes && stop.Routes.length > 0 ? stop.Routes.slice(0, 4).join('  ') : ''
+      const routeItems = Array.isArray(stop.Routes) ? stop.Routes : []
+      const routeNums = []
+      const seen = new Set()
+      for (const item of routeItems) {
+        const r = item.result || item
+        const num = r.Number || ''
+        if (num && !seen.has(num)) {
+          seen.add(num)
+          routeNums.push(num)
+        }
+      }
+      const routeStr = routeNums.slice(0, 6).join('  ')
       const lines = [stopName, address, routeStr].filter(Boolean)
       const buttonLabel = lines.join('\n')
       const hasExtra = address || routeStr
@@ -237,7 +228,8 @@ Page(
     },
 
     renderAddButton(count) {
-      const btnY = SCREEN_H - ADD_BTN_H - 24
+      const listBottom = HEADER_H + 8 + count * (CARD_H + CARD_GAP)
+      const btnY = Math.max(listBottom + 8, SCREEN_H - ADD_BTN_H - 24)
       const canAdd = count < MAX_FAVORITES
 
       hmUI.createWidget(hmUI.widget.BUTTON, {

@@ -20,6 +20,7 @@ import {
   MAX_FAVORITES,
 } from '../../utils/constants'
 import { addFavorite, loadFavorites } from '../../utils/storage'
+import { createSpinner } from '../../utils/spinner'
 
 const logger = Logger.getLogger('add-stop')
 
@@ -38,6 +39,7 @@ Page(
       results: [],
       error: null,
       selectedCity: 'minsk',
+      spinner: null,
     },
 
     onInit() {
@@ -49,6 +51,11 @@ Page(
     },
 
     renderPage() {
+      if (this.state.spinner) {
+        this.state.spinner.stop()
+        this.state.spinner = null
+      }
+
       hmUI.setStatusBarVisible(false);
 
       // Background
@@ -140,15 +147,21 @@ Page(
 
       // Status / searching indicator
       if (this.state.searching) {
+        const centerY = inputY + INPUT_H + (SCREEN_H - inputY - INPUT_H) / 2
+        if (this.state.spinner) this.state.spinner.stop()
+        this.state.spinner = createSpinner(
+          SCREEN_W / 2, centerY - 20,
+          16, 3, COLOR_TEXT
+        )
         hmUI.createWidget(hmUI.widget.TEXT, {
           x: MARGIN,
-          y: inputY + INPUT_H + 8,
+          y: centerY + 6,
           w: CONTENT_W,
           h: 24,
-          text: 'Searching...',
+          text: 'Connecting to transport-by.app',
           text_size: FONT_SIZE_SMALL,
           color: COLOR_TEXT_DIM,
-          align_h: hmUI.align.CENTER,
+          align_h: hmUI.align.CENTER_H,
           align_v: hmUI.align.CENTER_V,
         })
       } else if (this.state.error) {
@@ -335,6 +348,7 @@ Page(
     },
 
     onDestroy() {
+      if (this.state.spinner) this.state.spinner.stop()
       logger.log('Add-stop page destroyed')
     },
   })

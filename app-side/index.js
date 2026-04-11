@@ -206,7 +206,6 @@ function normalizeArrivals(raw, stopId) {
     })
     .sort((a, b) => a.minutes - b.minutes)
     .filter((a) => a.route && a.minutes != null && a.minutes < 60)
-    .slice(0, 5)
 
   console.log(`Normalized arrivals for stopId=${stopId}:`, arrivals)
   return { stopId, arrivals }
