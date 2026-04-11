@@ -1,7 +1,7 @@
 {
   "configVersion": "v3",
   "app": {
-    "appId": 20250327,
+    "appId": 1110452,
     "appName": "Bus Stop",
     "appType": "app",
     "version": {
@@ -64,5 +64,5 @@
       "appName": "Остановка"
     }
   },
-  "defaultLanguage": "ru-RU"
+  "defaultLanguage": "en-US"
 }
