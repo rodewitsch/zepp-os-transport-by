@@ -17,7 +17,6 @@ import {
   FONT_SIZE_BODY,
   FONT_SIZE_SMALL,
   FONT_SIZE_TINY,
-  MAX_FAVORITES,
 } from '../../utils/constants'
 import { addFavorite, loadFavorites } from '../../utils/storage'
 import { createSpinner } from '../../utils/spinner'
@@ -40,10 +39,6 @@ Page(
       error: null,
       selectedCity: 'minsk',
       spinner: null,
-    },
-
-    onInit() {
-      logger.log('Add-stop page init')
     },
 
     build() {
@@ -210,12 +205,6 @@ Page(
       const rowH = RESULT_BASE_H + routeLines.length * ROUTE_LINE_H + 8
 
       const addStop = () => {
-        const favorites = loadFavorites()
-        if (favorites.length >= MAX_FAVORITES) {
-          this.state.error = `Max ${MAX_FAVORITES} stops reached`
-          this.renderPage()
-          return
-        }
         addFavorite(stop)
         // Sync to settingsStorage so Settings App sees the change
         this.request({

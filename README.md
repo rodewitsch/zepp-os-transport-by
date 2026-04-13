@@ -8,10 +8,8 @@ passenger transport app for the Republic of Belarus.
 
 - **Favourite stops** – save up to 10 bus/tram/trolleybus stops
 - **Next arrivals** – see up to 5 upcoming vehicles with minutes-until-arrival
-- **Multi-city** – Minsk, Brest, Grodno, Gomel, Vitebsk, Mogilev
 - **Stop search** – search stops by name on the phone companion
 - **Offline safe** – graceful error messages when offline
-- **One-tap refresh** – pull fresh data any time
 
 ## App structure
 

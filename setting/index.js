@@ -13,10 +13,8 @@ AppSettingsPage({
 
     // --- Search Results ---
     const resultsUI = this.state.searchResults.map((stop) => {
-      const stopId = String(stop.StopID || stop.StopId || '')
-      const alreadyAdded = this.state.favorites.some(
-        (f) => String(f.StopID || f.StopId || '') === stopId
-      )
+      const stopId = String(stop.StopId || '')
+      const alreadyAdded = this.state.favorites.some((f) => String(f.StopId) === stopId)
 
       return View(
         {
@@ -37,29 +35,29 @@ AppSettingsPage({
             ),
             stop.RoutesSummary
               ? Text(
-                  { style: { fontSize: '11px', color: '#2196f3', marginTop: '4px' } },
-                  stop.RoutesSummary
-                )
+                { style: { fontSize: '11px', color: '#2196f3', marginTop: '4px' } },
+                stop.RoutesSummary
+              )
               : undefined,
           ]),
           alreadyAdded
             ? Text({ style: { color: '#00c853', fontSize: '12px' } }, '★ Добавлено')
             : Button({
-                label: '+',
-                style: {
-                  background: '#00c853',
-                  color: '#fff',
-                  borderRadius: '8px',
-                  fontSize: '16px',
-                  padding: '4px 14px',
-                },
-                onClick: () => {
-                  const favs = this.state.favorites.slice()
-                  // Store the raw API object — same shape the watch uses
-                  favs.push(stop)
-                  settingsStorage.setItem('favorites', JSON.stringify(favs))
-                },
-              }),
+              label: '+',
+              style: {
+                background: '#00c853',
+                color: '#fff',
+                borderRadius: '8px',
+                fontSize: '16px',
+                padding: '4px 14px',
+              },
+              onClick: () => {
+                const favs = this.state.favorites.slice()
+                // Store the raw API object — same shape the watch uses
+                favs.push(stop)
+                settingsStorage.setItem('favorites', JSON.stringify(favs))
+              },
+            }),
         ]
       )
     })
@@ -139,9 +137,9 @@ AppSettingsPage({
         }),
         this.state.searching
           ? Text(
-              { style: { color: '#888', padding: '8px 0', fontStyle: 'italic' } },
-              'Загрузка результатов...'
-            )
+            { style: { color: '#888', padding: '8px 0', fontStyle: 'italic' } },
+            'Загрузка результатов...'
+          )
           : resultsUI.length > 0
             ? View({}, resultsUI)
             : undefined,
@@ -152,24 +150,24 @@ AppSettingsPage({
         { title: 'Избранные остановки (' + this.state.favorites.length + ')' },
         this.state.favorites.length > 0
           ? [
-              ...favoritesUI,
-              Button({
-                label: 'Очистить все',
-                style: {
-                  background: '#880000',
-                  color: '#fff',
-                  borderRadius: '8px',
-                  marginTop: '12px',
-                },
-                onClick: () => {
-                  settingsStorage.setItem('favorites', JSON.stringify([]))
-                },
-              }),
-            ]
+            ...favoritesUI,
+            Button({
+              label: 'Очистить все',
+              style: {
+                background: '#880000',
+                color: '#fff',
+                borderRadius: '8px',
+                marginTop: '12px',
+              },
+              onClick: () => {
+                settingsStorage.setItem('favorites', JSON.stringify([]))
+              },
+            }),
+          ]
           : Text(
-              { style: { color: '#888', fontStyle: 'italic' } },
-              'Нет избранных остановок. Используйте поиск выше.'
-            )
+            { style: { color: '#888', fontStyle: 'italic' } },
+            'Нет избранных остановок. Используйте поиск выше.'
+          )
       ),
     ])
   },

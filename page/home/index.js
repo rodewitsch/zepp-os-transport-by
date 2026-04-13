@@ -16,7 +16,6 @@ import {
   FONT_SIZE_BODY,
   FONT_SIZE_SMALL,
   FONT_SIZE_TINY,
-  MAX_FAVORITES,
 } from '../../utils/constants'
 import { loadFavorites, saveFavorites, removeFavorite } from '../../utils/storage'
 
@@ -36,11 +35,6 @@ Page(
       favorites: [],
       scrollY: 0,
     },
-
-    onInit() {
-      logger.log('Home page init')
-    },
-
     build() {
       this.state.favorites = loadFavorites()
       this.renderPage()
@@ -74,7 +68,7 @@ Page(
           this.request({
             method: 'SAVE_FAVORITES',
             params: { favorites: loadFavorites() },
-          }).catch(() => {})
+          }).catch(() => { })
         })
         .catch((err) => {
           logger.log('Favorites sync failed (offline?):', err)
@@ -149,7 +143,7 @@ Page(
     renderFavoritesList(favorites) {
       const listTop = HEADER_H + 8
 
-      favorites.slice(0, MAX_FAVORITES).forEach((stop, index) => {
+      favorites.forEach((stop, index) => {
         const cardY = listTop + index * (CARD_H + CARD_GAP)
         this.renderStopCard(stop, index, cardY)
       })
@@ -166,7 +160,7 @@ Page(
         this.request({
           method: 'SAVE_FAVORITES',
           params: { favorites: this.state.favorites },
-        }).catch(() => {})
+        }).catch(() => { })
         this.renderPage()
       }
       const contentW = CONTENT_W - CARD_ACTION_W - 12
@@ -230,29 +224,20 @@ Page(
     renderAddButton(count) {
       const listBottom = HEADER_H + 8 + count * (CARD_H + CARD_GAP)
       const btnY = Math.max(listBottom + 8, SCREEN_H - ADD_BTN_H - 24)
-      const canAdd = count < MAX_FAVORITES
 
       hmUI.createWidget(hmUI.widget.BUTTON, {
         x: MARGIN,
         y: btnY,
         w: CONTENT_W,
         h: ADD_BTN_H,
-        normal_color: canAdd ? COLOR_PRIMARY : 0x333333,
-        press_color: canAdd ? 0x00a884 : 0x333333,
-        text: canAdd ? '+ Add stop' : `Max ${MAX_FAVORITES} stops`,
-        color: canAdd ? COLOR_BG : COLOR_TEXT_DIM,
+        normal_color: COLOR_PRIMARY,
+        press_color: 0x00a884,
+        text: '+ Add stop',
+        color: COLOR_BG,
         text_size: FONT_SIZE_BODY,
         radius: 28,
-        click_func: canAdd
-          ? () => {
-              push({ url: 'page/add-stop/index' })
-            }
-          : undefined,
+        click_func: () => push({ url: 'page/add-stop/index' })
       })
-    },
-
-    onDestroy() {
-      logger.log('Home page destroyed')
     },
   })
 )

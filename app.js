@@ -5,6 +5,7 @@ App(
     globalData: {
       favorites: [],
       lastUpdate: null,
+      messaging: {},
     },
   })
 )

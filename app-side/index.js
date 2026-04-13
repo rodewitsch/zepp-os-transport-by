@@ -112,7 +112,6 @@ async function postWithFallback(url, payload) {
  * Search for bus stops by name or address.
  */
 async function searchStops(query, lang) {
-
   const response = await postWithFallback(`${API_BASE}/Search`, {
     Text: query,
     BoundaryCircle: {

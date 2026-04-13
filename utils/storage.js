@@ -1,19 +1,27 @@
 import { LocalStorage } from '@zos/storage'
-import { STORAGE_KEY_FAVORITES, STORAGE_KEY_SETTINGS, DEFAULT_CITY } from './constants'
+import { STORAGE_KEY_FAVORITES, STORAGE_KEY_SETTINGS } from './constants'
 
 const storage = new LocalStorage()
 
 /**
+ * @typedef {Object} Stop
+ * @property {string} StopId
+ * @property {string} StopName
+ * @property {string} City
+ * @property {Array<string>} Routes
+ */
+
+/**
  * Load saved favorite stops from local storage.
- * @returns {Array} Array of favorite stop objects
+ * @returns {Array<Stop>} Array of favorite stop objects
  */
 export function loadFavorites() {
-  return storage.getItem(STORAGE_KEY_FAVORITES, [])
+  return storage.getItem(STORAGE_KEY_FAVORITES, []);
 }
 
 /**
  * Save favorite stops to local storage.
- * @param {Array} favorites
+ * @param {Array<Stop>} favorites
  */
 export function saveFavorites(favorites) {
   storage.setItem(STORAGE_KEY_FAVORITES, favorites)
@@ -21,8 +29,8 @@ export function saveFavorites(favorites) {
 
 /**
  * Add a stop to favorites.
- * @param {Object} stop - { StopId, StopName, City, Routes }
- * @returns {Array} Updated favorites list
+ * @param {Stop} stop - { StopId, StopName, City, Routes }
+ * @returns {Array<Stop>} Updated favorites list
  */
 export function addFavorite(stop) {
   const favorites = loadFavorites()
@@ -37,7 +45,7 @@ export function addFavorite(stop) {
 /**
  * Remove a stop from favorites by index.
  * @param {number} index
- * @returns {Array} Updated favorites list
+ * @returns {Array<Stop>} Updated favorites list
  */
 export function removeFavorite(index) {
   const favorites = loadFavorites()
@@ -52,7 +60,6 @@ export function removeFavorite(index) {
  */
 export function loadSettings() {
   return storage.getItem(STORAGE_KEY_SETTINGS, {
-    city: DEFAULT_CITY,
     language: 'ru',
   })
 }
