@@ -21,9 +21,18 @@ import { loadFavorites, saveFavorites, removeFavorite } from '../../utils/storag
 
 const logger = Logger.getLogger('home')
 
+// Route type → badge color (mirrors arrivals screen)
+const ROUTE_TYPE_COLORS = {
+  0: 0x00c853, // bus – green
+  1: 0x2196f3, // trolleybus – blue
+  2: 0xf44336, // tram – red
+  3: 0xff9800, // minibus – orange
+  4: 0x9c27b0, // metro – purple
+}
+
 // Layout constants
 const HEADER_H = 10
-const CARD_H = 76
+const CARD_H = 112
 const CARD_GAP = 8
 const ADD_BTN_H = 56
 const EMPTY_ICON_SIZE = 64
@@ -163,26 +172,26 @@ Page(
         }).catch(() => { })
         this.renderPage()
       }
-      const contentW = CONTENT_W - CARD_ACTION_W - 12
+
       const stopName = stop.StopName || 'Unknown stop'
       const address = stop.Address || ''
       const routeItems = Array.isArray(stop.Routes) ? stop.Routes : []
-      const routeNums = []
+      const routes = []
       const seen = new Set()
       for (const item of routeItems) {
         const r = item.result || item
         const num = r.Number || ''
+        const type = r.Type != null ? r.Type : 0
         if (num && !seen.has(num)) {
           seen.add(num)
-          routeNums.push(num)
+          routes.push({ num, type })
         }
       }
-      const routeStr = routeNums.slice(0, 6).join('  ')
-      const lines = [stopName, address, routeStr].filter(Boolean)
-      const buttonLabel = lines.join('\n')
-      const hasExtra = address || routeStr
+      const displayRoutes = routes.slice(0, 7)
+      const navW = CONTENT_W - CARD_ACTION_W
 
-      hmUI.createWidget(hmUI.widget.FILL_RECT, {
+      // Shared card background – animated as one unit on press
+      const cardBg = hmUI.createWidget(hmUI.widget.FILL_RECT, {
         x: MARGIN,
         y: cardY,
         w: CONTENT_W,
@@ -191,21 +200,83 @@ Page(
         radius: 8,
       })
 
-      hmUI.createWidget(hmUI.widget.BUTTON, {
-        x: MARGIN + 12,
-        y: cardY + 6,
-        w: contentW,
-        h: CARD_H - 12,
-        normal_color: COLOR_CARD_BG,
-        press_color: 0x2a2a2a,
-        text: buttonLabel,
-        text_size: hasExtra ? FONT_SIZE_TINY : FONT_SIZE_BODY,
-        color: COLOR_TEXT,
-        radius: 6,
-        click_func: cardNav,
+      // GROUP is transparent – children use group-relative coordinates
+      // Non-interactive children (TEXT, FILL_RECT) pass touches up to the group
+      const navGroup = hmUI.createWidget(hmUI.widget.GROUP, {
+        x: MARGIN,
+        y: cardY,
+        w: navW,
+        h: CARD_H,
       })
 
-      // Remove favourite shortcut
+      // Stop name
+      navGroup.createWidget(hmUI.widget.TEXT, {
+        x: 10,
+        y: 8,
+        w: navW - 10,
+        h: 34,
+        text: stopName,
+        text_size: FONT_SIZE_BODY,
+        color: COLOR_TEXT,
+        align_h: hmUI.align.CENTER_H,
+        align_v: hmUI.align.CENTER_V,
+        text_style: hmUI.text_style.ELLIPSIS,
+      })
+
+      // Address
+      if (address) {
+        navGroup.createWidget(hmUI.widget.TEXT, {
+          x: 10,
+          y: 46,
+          w: navW - 10,
+          h: 26,
+          text: address,
+          text_size: FONT_SIZE_SMALL,
+          color: COLOR_TEXT_DIM,
+          align_h: hmUI.align.CENTER_H,
+          align_v: hmUI.align.CENTER_V,
+          text_style: hmUI.text_style.ELLIPSIS,
+        })
+      }
+
+      // Route badges (group-relative y)
+      const badgeY = CARD_H - 32 + 4
+      let badgeX = 8
+      for (const route of displayRoutes) {
+        const badgeW = Math.max(32, route.num.length * 11 + 10)
+        const color = ROUTE_TYPE_COLORS[route.type] || ROUTE_TYPE_COLORS[0]
+        navGroup.createWidget(hmUI.widget.FILL_RECT, {
+          x: badgeX,
+          y: badgeY,
+          w: badgeW,
+          h: 24,
+          color,
+          radius: 4,
+        })
+        navGroup.createWidget(hmUI.widget.TEXT, {
+          x: badgeX,
+          y: badgeY,
+          w: badgeW,
+          h: 24,
+          text: route.num,
+          text_size: FONT_SIZE_TINY,
+          color: 0x000000,
+          align_h: hmUI.align.CENTER_H,
+          align_v: hmUI.align.CENTER_V,
+        })
+        badgeX += badgeW + 4
+      }
+
+      // Whole nav area animates as one: change shared card bg color on press/release
+      navGroup.addEventListener(hmUI.event.CLICK_DOWN, () => {
+        cardBg.setProperty(hmUI.prop.MORE, { color: 0x2a2a2a })
+      })
+      navGroup.addEventListener(hmUI.event.CLICK_UP, () => {
+        cardBg.setProperty(hmUI.prop.MORE, { color: COLOR_CARD_BG })
+        cardNav()
+      })
+
+      // Remove favourite button
       hmUI.createWidget(hmUI.widget.BUTTON, {
         x: MARGIN + CONTENT_W - CARD_ACTION_W,
         y: cardY,
