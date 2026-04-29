@@ -82,6 +82,7 @@ Page(
       arrivalsTimer: null,
       footerTimeText: null,
       spinner: null,
+      contentWidgets: [],
     },
 
     onInit(paramsStr) {
@@ -123,6 +124,19 @@ Page(
       }
     },
 
+    addWidget(type, props) {
+      const w = hmUI.createWidget(type, props)
+      this.state.contentWidgets.push(w)
+      return w
+    },
+
+    clearContentWidgets() {
+      this.state.contentWidgets.forEach(w => {
+        try { hmUI.deleteWidget(w) } catch (e) {}
+      })
+      this.state.contentWidgets = []
+    },
+
     startAutoRefresh() {
       this.stopAutoRefresh()
       this.state.arrivalsTimer = setInterval(() => {
@@ -160,14 +174,8 @@ Page(
         this.state.spinner = null
       }
 
-      // Clear below header
-      hmUI.createWidget(hmUI.widget.FILL_RECT, {
-        x: 0,
-        y: HEADER_H,
-        w: SCREEN_W,
-        h: SCREEN_H - HEADER_H - FOOTER_INFO_H,
-        color: COLOR_BG,
-      })
+      // Delete all previously created content widgets
+      this.clearContentWidgets()
 
       if (this.state.loading) {
         this.renderLoading()
@@ -187,7 +195,7 @@ Page(
         16, 3, COLOR_TEXT
       )
 
-      hmUI.createWidget(hmUI.widget.TEXT, {
+      this.addWidget(hmUI.widget.TEXT, {
         x: MARGIN,
         y: HEADER_H + 130,
         w: CONTENT_W,
@@ -201,7 +209,7 @@ Page(
     },
 
     renderError() {
-      hmUI.createWidget(hmUI.widget.TEXT, {
+      this.addWidget(hmUI.widget.TEXT, {
         x: MARGIN,
         y: HEADER_H + 60,
         w: CONTENT_W,
@@ -213,7 +221,7 @@ Page(
         align_v: hmUI.align.CENTER_V,
       })
 
-      hmUI.createWidget(hmUI.widget.TEXT, {
+      this.addWidget(hmUI.widget.TEXT, {
         x: MARGIN,
         y: HEADER_H + 110,
         w: CONTENT_W,
@@ -228,7 +236,7 @@ Page(
     },
 
     renderNoArrivals() {
-      hmUI.createWidget(hmUI.widget.TEXT, {
+      this.addWidget(hmUI.widget.TEXT, {
         x: MARGIN,
         y: HEADER_H + 70,
         w: CONTENT_W,
@@ -240,7 +248,7 @@ Page(
         align_v: hmUI.align.CENTER_V,
       })
 
-      hmUI.createWidget(hmUI.widget.TEXT, {
+      this.addWidget(hmUI.widget.TEXT, {
         x: MARGIN,
         y: HEADER_H + 118,
         w: CONTENT_W,
@@ -272,7 +280,7 @@ Page(
       const routeColor = getRouteColor(arrival.type)
 
       // Row background
-      hmUI.createWidget(hmUI.widget.FILL_RECT, {
+      this.addWidget(hmUI.widget.FILL_RECT, {
         x: MARGIN,
         y: rowY,
         w: CONTENT_W,
@@ -283,7 +291,7 @@ Page(
 
       // Route number badge
       const badgeW = 60
-      hmUI.createWidget(hmUI.widget.FILL_RECT, {
+      this.addWidget(hmUI.widget.FILL_RECT, {
         x: MARGIN + 8,
         y: rowY + (ROW_H - 36) / 2,
         w: badgeW,
@@ -292,7 +300,7 @@ Page(
         radius: 6,
       })
 
-      hmUI.createWidget(hmUI.widget.TEXT, {
+      this.addWidget(hmUI.widget.TEXT, {
         x: MARGIN + 8,
         y: rowY + (ROW_H - 36) / 2,
         w: badgeW,
@@ -305,7 +313,7 @@ Page(
       })
 
       // Direction text
-      hmUI.createWidget(hmUI.widget.TEXT, {
+      this.addWidget(hmUI.widget.TEXT, {
         x: MARGIN + 8 + badgeW + 8,
         y: rowY,
         w: CONTENT_W - badgeW - 80,
@@ -331,7 +339,7 @@ Page(
             ? COLOR_WARNING
             : COLOR_TEXT
 
-      hmUI.createWidget(hmUI.widget.TEXT, {
+      this.addWidget(hmUI.widget.TEXT, {
         x: MARGIN + CONTENT_W - 70,
         y: rowY,
         w: 66,
