@@ -68,14 +68,14 @@ Page(
 
     renderSearchSection() {
       // Two rows of city selector (3 cities each)
-      const sectionY = HEADER_H;
+      const sectionY = HEADER_H + 24;
 
       // Text input widget
       const inputY = sectionY;
       hmUI.createWidget(hmUI.widget.FILL_RECT, {
         x: MARGIN,
         y: inputY,
-        w: CONTENT_W - 64,
+        w: CONTENT_W,
         h: INPUT_H,
         color: COLOR_CARD_BG,
         radius: 8,
@@ -90,7 +90,11 @@ Page(
             onComplete: (_widget, result) => {
               this.state.query = (result && result.data) || ''
               hmUI.deleteKeyboard()
-              this.renderPage()
+              if (this.state.query.trim()) {
+                this.performSearch()
+              } else {
+                this.renderPage()
+              }
             },
             onCancel: () => {
               hmUI.deleteKeyboard()
@@ -105,7 +109,7 @@ Page(
       hmUI.createWidget(hmUI.widget.BUTTON, {
         x: MARGIN + 4,
         y: inputY,
-        w: CONTENT_W - 64 - 8,
+        w: CONTENT_W - 8,
         h: INPUT_H,
         normal_color: COLOR_CARD_BG,
         press_color: 0x2a2a2a,
@@ -114,30 +118,6 @@ Page(
         color: this.state.query ? COLOR_TEXT : COLOR_TEXT_DIM,
         radius: 8,
         click_func: openKeyboard,
-      })
-
-      // Search button
-      const searchBtnX = SCREEN_W - MARGIN - 56
-      hmUI.createWidget(hmUI.widget.BUTTON, {
-        x: searchBtnX,
-        y: inputY,
-        w: 56,
-        h: INPUT_H,
-        normal_color: COLOR_ACCENT,
-        press_color: 0x1565c0,
-        text: 'Go',
-        text_size: FONT_SIZE_SMALL,
-        color: COLOR_TEXT,
-        radius: 8,
-        click_func: () => {
-          // todo: remove after testing
-          this.state.query = this.state.query || 'оперный театр';
-          if (!this.state.query.trim()) {
-            openKeyboard()
-            return
-          }
-          this.performSearch()
-        },
       })
 
       // Status / searching indicator
