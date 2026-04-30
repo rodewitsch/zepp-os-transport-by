@@ -1,6 +1,8 @@
 import * as hmUI from '@zos/ui'
 import { log as Logger } from '@zos/utils'
 import { push } from '@zos/router'
+import { setScrollLock } from '@zos/page'
+import { Vibrator, VIBRATOR_SCENE_SHORT_STRONG } from '@zos/sensor'
 import { BasePage } from '@zeppos/zml/base-page'
 import {
   SCREEN_W,
@@ -20,6 +22,7 @@ import {
 import { loadFavorites, saveFavorites, removeFavorite } from '../../utils/storage'
 
 const logger = Logger.getLogger('home')
+const vibrator = new Vibrator()
 
 // Route type → badge color (mirrors arrivals screen)
 const ROUTE_TYPE_COLORS = {
@@ -32,17 +35,20 @@ const ROUTE_TYPE_COLORS = {
 
 // Layout constants
 const HEADER_H = 10
-const CARD_H = 112
+const CARD_H = 120
 const CARD_GAP = 8
 const ADD_BTN_H = 56
 const EMPTY_ICON_SIZE = 64
-const CARD_ACTION_W = 48
+const SNAP_REVEAL_W = 72
+const SWIPE_REVEAL_THRESHOLD = 40
 
 Page(
   BasePage({
     state: {
       favorites: [],
       scrollY: 0,
+      widgets: [],
+      activeReset: null,
     },
     build() {
       this.state.favorites = loadFavorites()
@@ -84,13 +90,24 @@ Page(
         })
     },
 
+    _cw(type, props) {
+      const w = hmUI.createWidget(type, props)
+      this.state.widgets.push(w)
+      return w
+    },
+
     renderPage() {
       const favorites = this.state.favorites;
+
+      // Destroy all previously created widgets before rebuilding
+      this.state.widgets.forEach((w) => hmUI.deleteWidget(w))
+      this.state.widgets = []
+      this.state.activeReset = null
 
       hmUI.setStatusBarVisible(false);
 
       // Background
-      hmUI.createWidget(hmUI.widget.FILL_RECT, {
+      this._cw(hmUI.widget.FILL_RECT, {
         x: 0,
         y: 0,
         w: SCREEN_W,
@@ -112,7 +129,7 @@ Page(
       const centerY = SCREEN_H / 2
 
       // Bus icon (placeholder)
-      hmUI.createWidget(hmUI.widget.TEXT, {
+      this._cw(hmUI.widget.TEXT, {
         x: (SCREEN_W - EMPTY_ICON_SIZE) / 2,
         y: centerY - 80,
         w: EMPTY_ICON_SIZE,
@@ -124,7 +141,7 @@ Page(
         align_v: hmUI.align.CENTER_V,
       })
 
-      hmUI.createWidget(hmUI.widget.TEXT, {
+      this._cw(hmUI.widget.TEXT, {
         x: MARGIN,
         y: centerY - 10,
         w: CONTENT_W,
@@ -136,7 +153,7 @@ Page(
         align_v: hmUI.align.CENTER_V,
       })
 
-      hmUI.createWidget(hmUI.widget.TEXT, {
+      this._cw(hmUI.widget.TEXT, {
         x: MARGIN,
         y: centerY + 28,
         w: CONTENT_W,
@@ -188,10 +205,54 @@ Page(
         }
       }
       const displayRoutes = routes.slice(0, 7)
-      const navW = CONTENT_W - CARD_ACTION_W
 
-      // Shared card background – animated as one unit on press
-      const cardBg = hmUI.createWidget(hmUI.widget.FILL_RECT, {
+      // null = undecided, 'h' = horizontal, 'v' = vertical
+      let gestureDir = null
+      let touchStartX = 0
+      let touchStartY = 0
+      let currentOffset = 0
+      let isRevealed = false
+
+      // ── Layer 2: delete tap area (GROUP, below navGroup in z-order) ──
+      // Exposed only when navGroup slides left far enough.
+      // isRevealed guard prevents accidental fire if touch propagation surprises.
+      const deleteGroup = this._cw(hmUI.widget.GROUP, {
+        x: MARGIN + CONTENT_W - SNAP_REVEAL_W,
+        y: cardY,
+        w: SNAP_REVEAL_W,
+        h: CARD_H,
+      })
+
+      deleteGroup.createWidget(hmUI.widget.FILL_RECT, {
+        x: 0,
+        y: 0,
+        w: SNAP_REVEAL_W,
+        h: CARD_H,
+        color: COLOR_ERROR,
+        radius: 8,
+      })
+
+      // Trash bin icon
+      deleteGroup.createWidget(hmUI.widget.TEXT, {
+        x: 0,
+        y: 0,
+        w: SNAP_REVEAL_W,
+        h: CARD_H,
+        text: '\uD83D\uDDD1',
+        text_size: 28,
+        color: 0xffffff,
+        align_h: hmUI.align.CENTER_H,
+        align_v: hmUI.align.CENTER_V,
+      })
+
+
+      deleteGroup.addEventListener(hmUI.event.CLICK_UP, () => {
+        console.log('Delete tap', isRevealed)
+        if (isRevealed) removeStop()
+      })
+
+      // ── Layer 3: sliding card background ──
+      const cardBg = this._cw(hmUI.widget.FILL_RECT, {
         x: MARGIN,
         y: cardY,
         w: CONTENT_W,
@@ -200,12 +261,11 @@ Page(
         radius: 8,
       })
 
-      // GROUP is transparent – children use group-relative coordinates
-      // Non-interactive children (TEXT, FILL_RECT) pass touches up to the group
-      const navGroup = hmUI.createWidget(hmUI.widget.GROUP, {
+      // ── Layer 4: nav group (covers deleteGroup when in default position) ──
+      const navGroup = this._cw(hmUI.widget.GROUP, {
         x: MARGIN,
         y: cardY,
-        w: navW,
+        w: CONTENT_W,
         h: CARD_H,
       })
 
@@ -213,12 +273,12 @@ Page(
       navGroup.createWidget(hmUI.widget.TEXT, {
         x: 10,
         y: 8,
-        w: navW - 10,
+        w: CONTENT_W - 10,
         h: 34,
         text: stopName,
         text_size: FONT_SIZE_BODY,
         color: COLOR_TEXT,
-        align_h: hmUI.align.CENTER_H,
+        align_h: hmUI.align.LEFT,
         align_v: hmUI.align.CENTER_V,
         text_style: hmUI.text_style.ELLIPSIS,
       })
@@ -228,67 +288,121 @@ Page(
         navGroup.createWidget(hmUI.widget.TEXT, {
           x: 10,
           y: 46,
-          w: navW - 10,
+          w: CONTENT_W - 10,
           h: 26,
           text: address,
           text_size: FONT_SIZE_SMALL,
           color: COLOR_TEXT_DIM,
-          align_h: hmUI.align.CENTER_H,
+          align_h: hmUI.align.LEFT,
           align_v: hmUI.align.CENTER_V,
           text_style: hmUI.text_style.ELLIPSIS,
         })
       }
 
-      // Route badges (group-relative y)
-      const badgeY = CARD_H - 32 + 4
+      // Route badges (group-relative coordinates)
+      const badgeY = CARD_H - 36
       let badgeX = 8
       for (const route of displayRoutes) {
         const badgeW = Math.max(32, route.num.length * 11 + 10)
+        if (badgeX + badgeW > CONTENT_W - 8) break
         const color = ROUTE_TYPE_COLORS[route.type] || ROUTE_TYPE_COLORS[0]
         navGroup.createWidget(hmUI.widget.FILL_RECT, {
-          x: badgeX,
-          y: badgeY,
-          w: badgeW,
-          h: 24,
-          color,
-          radius: 4,
+          x: badgeX, y: badgeY, w: badgeW, h: 24, color, radius: 4,
         })
         navGroup.createWidget(hmUI.widget.TEXT, {
-          x: badgeX,
-          y: badgeY,
-          w: badgeW,
-          h: 24,
-          text: route.num,
-          text_size: FONT_SIZE_TINY,
-          color: 0x000000,
-          align_h: hmUI.align.CENTER_H,
-          align_v: hmUI.align.CENTER_V,
+          x: badgeX, y: badgeY, w: badgeW, h: 24,
+          text: route.num, text_size: FONT_SIZE_TINY, color: 0x000000,
+          align_h: hmUI.align.CENTER_H, align_v: hmUI.align.CENTER_V,
         })
         badgeX += badgeW + 4
       }
 
-      // Whole nav area animates as one: change shared card bg color on press/release
-      navGroup.addEventListener(hmUI.event.CLICK_DOWN, () => {
-        cardBg.setProperty(hmUI.prop.MORE, { color: 0x2a2a2a })
-      })
-      navGroup.addEventListener(hmUI.event.CLICK_UP, () => {
-        cardBg.setProperty(hmUI.prop.MORE, { color: COLOR_CARD_BG })
-        cardNav()
+      const applyOffset = (offset) => {
+        const newX = MARGIN + offset
+        cardBg.setProperty(hmUI.prop.MORE, { x: newX, y: cardY, w: CONTENT_W, h: CARD_H })
+        navGroup.setProperty(hmUI.prop.MORE, { x: newX, y: cardY, w: CONTENT_W, h: CARD_H })
+      }
+
+      const resetCard = () => {
+        isRevealed = false
+        applyOffset(0)
+        if (this.state.activeReset === resetCard) this.state.activeReset = null
+      }
+
+      const snapToRevealed = () => {
+        isRevealed = true
+        this.state.activeReset = resetCard
+        applyOffset(-SNAP_REVEAL_W)
+        vibrator.setMode({ mode: VIBRATOR_SCENE_SHORT_STRONG })
+        vibrator.start()
+      }
+
+      navGroup.addEventListener(hmUI.event.CLICK_DOWN, (e) => {
+        // Snap back any other card left displaced
+        if (this.state.activeReset && this.state.activeReset !== resetCard) {
+          this.state.activeReset()
+        }
+        touchStartX = e.x
+        touchStartY = e.y
+        // Track from current position so swipe feels continuous when already revealed
+        currentOffset = isRevealed ? -SNAP_REVEAL_W : 0
+        gestureDir = null
       })
 
-      // Remove favourite button
-      hmUI.createWidget(hmUI.widget.BUTTON, {
-        x: MARGIN + CONTENT_W - CARD_ACTION_W,
-        y: cardY,
-        w: CARD_ACTION_W,
-        h: CARD_H,
-        normal_color: 0x2a1010,
-        press_color: 0x3a1616,
-        text: 'X',
-        text_size: FONT_SIZE_SMALL,
-        color: COLOR_ERROR,
-        radius: 8,
-        click_func: removeStop,
+      navGroup.addEventListener(hmUI.event.MOVE, (e) => {
+        const dx = e.x - touchStartX
+        const absDx = Math.abs(dx)
+        const absDy = Math.abs(e.y - touchStartY)
+
+        // Wait for 16px before committing to a direction
+        if (gestureDir === null) {
+          if (absDx < 16 && absDy < 16) return
+          gestureDir = absDy > absDx ? 'v' : 'h'
+          if (gestureDir === 'h') {
+            setScrollLock({ lock: true })
+            this.state.activeReset = resetCard
+          }
+          if (gestureDir === 'v') {
+            if (isRevealed) resetCard()
+            return
+          }
+        }
+
+        if (gestureDir === 'v') return
+
+        // Clamp to [–SNAP_REVEAL_W, 0] relative to current base
+        const baseOffset = isRevealed ? -SNAP_REVEAL_W : 0
+        const offset = Math.max(-SNAP_REVEAL_W, Math.min(0, baseOffset + dx))
+        currentOffset = offset
+        applyOffset(offset)
+      })
+
+      navGroup.addEventListener(hmUI.event.CLICK_UP, () => {
+        setScrollLock({ lock: false })
+
+        if (gestureDir === 'h') {
+          if (!isRevealed && currentOffset < -SWIPE_REVEAL_THRESHOLD) {
+            // Swiped left far enough – snap to revealed
+            snapToRevealed()
+          } else if (isRevealed && currentOffset > -SNAP_REVEAL_W + 20) {
+            // Swiped right enough from revealed – hide button
+            resetCard()
+          } else {
+            // Snap back to wherever we were (revealed or default)
+            applyOffset(isRevealed ? -SNAP_REVEAL_W : 0)
+          }
+        } else if (gestureDir === null) {
+          // Clean tap
+          if (isRevealed) {
+            resetCard() // hide button, don't navigate
+          } else {
+            cardNav()
+          }
+        }
+        // gestureDir === 'v': scroll gesture, do nothing on lift
+
+        gestureDir = null
+        currentOffset = 0
       })
     },
 
@@ -296,7 +410,7 @@ Page(
       const listBottom = HEADER_H + 8 + count * (CARD_H + CARD_GAP)
       const btnY = Math.max(listBottom + 8, SCREEN_H - ADD_BTN_H - 24)
 
-      hmUI.createWidget(hmUI.widget.BUTTON, {
+      this._cw(hmUI.widget.BUTTON, {
         x: MARGIN,
         y: btnY,
         w: CONTENT_W,
