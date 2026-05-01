@@ -113,7 +113,7 @@ Page(
         h: INPUT_H,
         normal_color: COLOR_CARD_BG,
         press_color: 0x2a2a2a,
-        text: this.state.query || 'Tap to enter stop name',
+        text: this.state.query || 'Введите название остановки',
         text_size: FONT_SIZE_SMALL,
         color: this.state.query ? COLOR_TEXT : COLOR_TEXT_DIM,
         radius: 8,
@@ -133,7 +133,7 @@ Page(
           y: centerY + 6,
           w: CONTENT_W,
           h: 24,
-          text: 'Connecting to transport-by.app',
+          text: 'Подключение к transport-by.app',
           text_size: FONT_SIZE_SMALL,
           color: COLOR_TEXT_DIM,
           align_h: hmUI.align.CENTER_H,
@@ -273,7 +273,7 @@ Page(
     performSearch() {
       const query = this.state.query.trim()
       if (!query || query.length < 2) {
-        this.state.error = 'Enter at least 2 characters'
+        this.state.error = 'Введите как минимум 2 символа'
         this.renderPage()
         return
       }
@@ -301,7 +301,7 @@ Page(
           } else {
             this.state.results = data.stops || []
             if (this.state.results.length === 0) {
-              this.state.error = 'No stops found'
+              this.state.error = 'Остановки не найдены'
             }
           }
 
@@ -310,7 +310,7 @@ Page(
         .catch((err) => {
           logger.log('Search error:', err)
           this.state.searching = false
-          this.state.error = err && err.message ? err.message : 'Connection failed'
+          this.state.error = err && err.message ? err.message : 'Подключение не удалось. Попробуйте снова.' // 'Connection failed. Try again.'
           this.state.results = []
           this.renderPage()
         })

@@ -159,7 +159,7 @@ Page(
         y: HEADER_H,
         w: SCREEN_W,
         h: FOOTER_INFO_H,
-        text: 'Updated: --:--:--',
+        text: 'Обновлено: --:--:--',
         text_size: FONT_SIZE_TINY,
         color: COLOR_TEXT_DIM,
         align_h: hmUI.align.CENTER_H,
@@ -200,7 +200,7 @@ Page(
         y: HEADER_H + 130,
         w: CONTENT_W,
         h: 28,
-        text: 'Connecting to transport-by.app',
+        text: 'Подключение к transport-by.app',
         text_size: FONT_SIZE_SMALL,
         color: COLOR_TEXT_DIM,
         align_h: hmUI.align.CENTER_H,
@@ -354,8 +354,8 @@ Page(
 
     renderLastUpdated() {
       const text = this.state.lastUpdated
-        ? `Updated: ${formatUpdatedTime(this.state.lastUpdated)}`
-        : 'Updated: --:--:--'
+        ? `Обновлено: ${formatUpdatedTime(this.state.lastUpdated)}`
+        : 'Обновлено: --:--:--'
 
       if (!this.state.footerTimeText) {
         this.renderFooterTimeWidget()
@@ -438,7 +438,7 @@ Page(
         .catch((err) => {
           logger.log('Arrivals error:', err)
           this.state.loading = false
-          this.state.error = 'Connection failed. Check phone internet.'
+          this.state.error = 'Подключение не удалось. Попробуйте снова.' // 'Connection failed. Try again.'
           this.state.arrivals = []
           this.state.lastUpdated = new Date()
           this.renderContent()

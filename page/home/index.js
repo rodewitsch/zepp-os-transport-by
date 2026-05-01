@@ -48,7 +48,7 @@ Page(
       favorites: [],
       scrollY: 0,
       widgets: [],
-      activeReset: null,
+      resets: [],
     },
     build() {
       this.state.favorites = loadFavorites()
@@ -102,17 +102,20 @@ Page(
       // Destroy all previously created widgets before rebuilding
       this.state.widgets.forEach((w) => hmUI.deleteWidget(w))
       this.state.widgets = []
-      this.state.activeReset = null
+      this.state.resets = []
 
       hmUI.setStatusBarVisible(false);
 
-      // Background
-      this._cw(hmUI.widget.FILL_RECT, {
+      // Background – tap on empty space resets all revealed cards
+      const bg = this._cw(hmUI.widget.FILL_RECT, {
         x: 0,
         y: 0,
         w: SCREEN_W,
         h: SCREEN_H,
         color: COLOR_BG,
+      })
+      bg.addEventListener(hmUI.event.CLICK_UP, () => {
+        this.state.resets.forEach(fn => fn())
       })
 
       if (favorites.length === 0) {
@@ -247,8 +250,7 @@ Page(
 
 
       deleteGroup.addEventListener(hmUI.event.CLICK_UP, () => {
-        console.log('Delete tap', isRevealed)
-        if (isRevealed) removeStop()
+        removeStop()
       })
 
       // ── Layer 3: sliding card background ──
@@ -326,25 +328,24 @@ Page(
       const resetCard = () => {
         isRevealed = false
         applyOffset(0)
-        if (this.state.activeReset === resetCard) this.state.activeReset = null
+      }
+
+      const resetOthers = () => {
+        this.state.resets.forEach(fn => fn !== resetCard && fn())
       }
 
       const snapToRevealed = () => {
         isRevealed = true
-        this.state.activeReset = resetCard
         applyOffset(-SNAP_REVEAL_W)
         vibrator.setMode({ mode: VIBRATOR_SCENE_SHORT_STRONG })
         vibrator.start()
       }
 
+      this.state.resets.push(resetCard)
+
       navGroup.addEventListener(hmUI.event.CLICK_DOWN, (e) => {
-        // Snap back any other card left displaced
-        if (this.state.activeReset && this.state.activeReset !== resetCard) {
-          this.state.activeReset()
-        }
         touchStartX = e.x
         touchStartY = e.y
-        // Track from current position so swipe feels continuous when already revealed
         currentOffset = isRevealed ? -SNAP_REVEAL_W : 0
         gestureDir = null
       })
@@ -354,13 +355,12 @@ Page(
         const absDx = Math.abs(dx)
         const absDy = Math.abs(e.y - touchStartY)
 
-        // Wait for 16px before committing to a direction
         if (gestureDir === null) {
           if (absDx < 16 && absDy < 16) return
           gestureDir = absDy > absDx ? 'v' : 'h'
           if (gestureDir === 'h') {
             setScrollLock({ lock: true })
-            this.state.activeReset = resetCard
+            resetOthers()
           }
           if (gestureDir === 'v') {
             if (isRevealed) resetCard()
@@ -370,7 +370,21 @@ Page(
 
         if (gestureDir === 'v') return
 
-        // Clamp to [–SNAP_REVEAL_W, 0] relative to current base
+        // Finger drifted far outside the card vertically – CLICK_UP won't fire
+        // outside widget bounds in Zepp OS, so settle the gesture here.
+        if (absDy > CARD_H / 2) {
+          setScrollLock({ lock: false })
+          if (currentOffset < -SWIPE_REVEAL_THRESHOLD) {
+            snapToRevealed()
+          } else {
+            resetCard()
+          }
+          resetOthers()
+          gestureDir = null
+          currentOffset = 0
+          return
+        }
+
         const baseOffset = isRevealed ? -SNAP_REVEAL_W : 0
         const offset = Math.max(-SNAP_REVEAL_W, Math.min(0, baseOffset + dx))
         currentOffset = offset
@@ -381,29 +395,25 @@ Page(
         setScrollLock({ lock: false })
 
         if (gestureDir === 'h') {
-          if (!isRevealed && currentOffset < -SWIPE_REVEAL_THRESHOLD) {
-            // Swiped left far enough – snap to revealed
+          if (currentOffset < -SWIPE_REVEAL_THRESHOLD) {
             snapToRevealed()
-          } else if (isRevealed && currentOffset > -SNAP_REVEAL_W + 20) {
-            // Swiped right enough from revealed – hide button
-            resetCard()
           } else {
-            // Snap back to wherever we were (revealed or default)
-            applyOffset(isRevealed ? -SNAP_REVEAL_W : 0)
+            resetCard()
           }
         } else if (gestureDir === null) {
-          // Clean tap
           if (isRevealed) {
-            resetCard() // hide button, don't navigate
+            resetCard()
           } else {
             cardNav()
           }
         }
-        // gestureDir === 'v': scroll gesture, do nothing on lift
 
+        resetOthers()
         gestureDir = null
         currentOffset = 0
       })
+
+
     },
 
     renderAddButton(count) {
@@ -417,7 +427,7 @@ Page(
         h: ADD_BTN_H,
         normal_color: COLOR_PRIMARY,
         press_color: 0x00a884,
-        text: '+ Add stop',
+        text: '+ добавить',
         color: COLOR_BG,
         text_size: FONT_SIZE_BODY,
         radius: 28,
