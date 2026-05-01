@@ -31,8 +31,7 @@
           "pages": [
             "page/home/index",
             "page/arrivals/index",
-            "page/add-stop/index",
-            "page/settings/index"
+            "page/add-stop/index"
           ]
         },
         "app-side": {

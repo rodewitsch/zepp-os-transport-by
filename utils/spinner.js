@@ -10,7 +10,7 @@ const ARC_SPAN = 90;
  * @param {number} radius - The radius of the spinner.
  * @param {number} lineWidth - The width of the spinner's arc.
  * @param {number} color - The color of the spinner's arc.
- * @returns {object} An object with a `stop` method to stop the spinner.
+ * @returns {{ stop: () => void }} An object with a `stop` method to stop the spinner.
  */
 export function createSpinner(cx, cy, radius, lineWidth, color) {
   const size = (radius + lineWidth) * 2;

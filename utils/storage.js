@@ -7,8 +7,9 @@ const storage = new LocalStorage()
  * @typedef {Object} Stop
  * @property {string} StopId
  * @property {string} StopName
- * @property {string} City
- * @property {Array<string>} Routes
+ * @property {string} [City]
+ * @property {string} [Address]
+ * @property {any[]} [Routes]
  */
 
 /**
@@ -16,7 +17,8 @@ const storage = new LocalStorage()
  * @returns {Array<Stop>} Array of favorite stop objects
  */
 export function loadFavorites() {
-  return storage.getItem(STORAGE_KEY_FAVORITES, []);
+  // @ts-ignore
+  return (storage.getItem(STORAGE_KEY_FAVORITES, []));
 }
 
 /**
@@ -56,17 +58,19 @@ export function removeFavorite(index) {
 
 /**
  * Load app settings.
- * @returns {Object} Settings object
+ * @returns {{ language: string }} Settings object
  */
 export function loadSettings() {
+  // @ts-ignore
   return storage.getItem(STORAGE_KEY_SETTINGS, {
     language: 'ru',
-  })
+  });
 }
 
 /**
  * Save app settings.
- * @param {Object} settings
+ * @param {{ language: string }} settings
+
  */
 export function saveSettings(settings) {
   storage.setItem(STORAGE_KEY_SETTINGS, settings)

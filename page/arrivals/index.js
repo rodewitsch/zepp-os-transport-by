@@ -1,6 +1,5 @@
 import * as hmUI from '@zos/ui'
 import { log as Logger } from '@zos/utils'
-import { push, back } from '@zos/router'
 import {
   setPageBrightTime,
   resetPageBrightTime,
@@ -12,22 +11,17 @@ import {
 import { BasePage } from '@zeppos/zml/base-page'
 import {
   SCREEN_W,
-  SCREEN_H,
   MARGIN,
   CONTENT_W,
-  COLOR_BG,
   COLOR_PRIMARY,
   COLOR_TEXT,
   COLOR_TEXT_DIM,
   COLOR_CARD_BG,
   COLOR_WARNING,
-  COLOR_ERROR,
   FONT_SIZE_BODY,
   FONT_SIZE_SMALL,
   FONT_SIZE_TINY,
-  MAX_ARRIVALS_SHOWN,
 } from '../../utils/constants'
-import { removeFavorite } from '../../utils/storage'
 import { createSpinner } from '../../utils/spinner'
 
 const logger = Logger.getLogger('arrivals')
@@ -57,14 +51,29 @@ const TYPE_COLORS = {
   [TRANSPORT_TYPES.metro]: 0x9c27b0,
 }
 
+/**
+ * Get the color associated with a transport type.
+ * @param {number} type - Transport type identifier
+ * @returns {number} Color in hex format (e.g. 0x00c853)
+ */
 function getRouteColor(type) {
   return TYPE_COLORS[type] || TYPE_COLORS[TRANSPORT_TYPES.bus]
 }
 
+/**
+ * Pad a number with leading zeros to ensure it has at least 2 digits.
+ * @param {number} value
+ * @returns {string} Padded string
+ */
 function pad2(value) {
   return String(value).padStart(2, '0')
 }
 
+/**
+ * Format a Date object into a time string "HH:MM:SS".
+ * @param {Date} date
+ * @returns {string} Formatted time string
+ */
 function formatUpdatedTime(date) {
   return `${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`
 }
@@ -72,16 +81,24 @@ function formatUpdatedTime(date) {
 Page(
   BasePage({
     state: {
+      /** @type {import('../../utils/storage').Stop | null} */
       stop: null,
       index: -1,
       loading: false,
+      /** @type {string | null} */
       error: null,
+      /** @type {Array<any>} */
       arrivals: [],
       stopName: '',
+      /** @type {Date | null} */
       lastUpdated: null,
+      /** @type {number | null} */
       arrivalsTimer: null,
+      /** @type {any | null} */
       footerTimeText: null,
+      /** @type {any | null} */
       spinner: null,
+      /** @type {any[]} */
       contentWidgets: [],
     },
 
@@ -89,17 +106,17 @@ Page(
       logger.log('Arrivals page init, params:', paramsStr)
       try {
         setPageBrightTime({ brightTime: BRIGHT_TIME_MS })
-      } catch (e) {
+      } catch (/** @type {any} */ e) {
         logger.log('Failed to set bright screen:', e)
       }
       try {
         pausePalmScreenOff({ duration: 0 })
-      } catch (e) {
+      } catch (/** @type {any} */ e) {
         logger.log('Failed to pause palm screen off:', e)
       }
       try {
         pauseDropWristScreenOff({ duration: 0 })
-      } catch (e) {
+      } catch (/** @type {any} */ e) {
         logger.log('Failed to pause drop wrist screen off:', e)
       }
 
@@ -107,7 +124,7 @@ Page(
         const params = JSON.parse(paramsStr || '{}')
         this.state.stop = params.stop || null
         this.state.index = params.index != null ? params.index : -1
-      } catch (e) {
+      } catch (/** @type {any} */ e) {
         logger.log('Failed to parse params:', e)
       }
     },
@@ -124,6 +141,11 @@ Page(
       }
     },
 
+    /**
+     * @param {number} type
+     * @param {any} props
+     * @returns {any}
+     */
     addWidget(type, props) {
       const w = hmUI.createWidget(type, props)
       this.state.contentWidgets.push(w)
@@ -132,7 +154,7 @@ Page(
 
     clearContentWidgets() {
       this.state.contentWidgets.forEach(w => {
-        try { hmUI.deleteWidget(w) } catch (e) {}
+        try { hmUI.deleteWidget(w) } catch (e) { }
       })
       this.state.contentWidgets = []
     },
@@ -275,6 +297,11 @@ Page(
       });
     },
 
+    /**
+     * Render a single arrival row.
+     * @param {any} arrival - Arrival data object
+     * @param {number} rowY - Y-coordinate for the row
+     */
     renderArrivalRow(arrival, rowY) {
 
       const routeColor = getRouteColor(arrival.type)
@@ -372,15 +399,13 @@ Page(
 
       logger.log('Fetching arrivals for stop:', JSON.stringify(stop))
 
-      const stopId = String(
-        stop.id || stop.stopId || stop.StopId || stop.stop_id || ''
-      )
+      const stopId = String(stop.StopId)
 
       logger.log('Fetching arrivals for stop ID:', stopId)
 
       if (!stopId) {
         this.state.loading = false
-        this.state.error = 'Stop ID is missing. Re-add this stop.'
+        this.state.error = 'Ошибка данных остановки. Добавьте остановку снова.' // 'Stop data error'
         this.state.arrivals = []
         this.state.lastUpdated = new Date()
         this.renderContent()
@@ -404,14 +429,13 @@ Page(
           method: 'GET_ARRIVALS',
           params: {
             stopId,
-            city: stop.city || 'minsk',
             lang: 'ru',
           },
         })
-      } catch (err) {
+      } catch (/** @type {any} */ err) {
         logger.log('Arrivals request setup error:', err)
         this.state.loading = false
-        this.state.error = 'Failed to start request. Try again.'
+        this.state.error = 'Не удалось получить данные. Попробуйте снова.' // 'Failed to start request. Try again.'
         this.state.arrivals = []
         this.state.lastUpdated = new Date()
         this.renderContent()
@@ -451,17 +475,17 @@ Page(
 
       try {
         resetPageBrightTime()
-      } catch (e) {
+      } catch (/** @type {any} */ e) {
         logger.log('Failed to cancel bright screen:', e)
       }
       try {
         resetPalmScreenOff()
-      } catch (e) {
+      } catch (/** @type {any} */ e) {
         logger.log('Failed to reset palm screen off:', e)
       }
       try {
         resetDropWristScreenOff()
-      } catch (e) {
+      } catch (/** @type {any} */ e) {
         logger.log('Failed to reset drop wrist screen off:', e)
       }
 

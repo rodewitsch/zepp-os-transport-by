@@ -45,9 +45,12 @@ const SWIPE_REVEAL_THRESHOLD = 40
 Page(
   BasePage({
     state: {
+      /** @type {import('../../utils/storage').Stop[]} */
       favorites: [],
       scrollY: 0,
+      /** @type {any[]} */
       widgets: [],
+      /** @type {Array<() => void>} */
       resets: [],
     },
     build() {
@@ -57,15 +60,15 @@ Page(
       // Sync favorites from Settings App (settingsStorage → device LocalStorage)
       this.request({ method: 'GET_FAVORITES', params: {} })
         .then((data) => {
-          const remoteFavs = data && data.favorites ? data.favorites : []
+          const remoteFavs = /** @type {import('../../utils/storage').Stop[]} */ (data && data.favorites ? data.favorites : [])
           if (remoteFavs.length > 0) {
             // Merge: add remote stops not yet in local
             const localFavs = loadFavorites()
             let changed = false
             remoteFavs.forEach((rf) => {
-              const rid = String(rf.StopID || rf.StopId || rf.id || '')
+              const rid = String(rf.StopId || '')
               const exists = localFavs.some((lf) => {
-                const lid = String(lf.StopID || lf.StopId || lf.id || '')
+                const lid = String(lf.StopId || '')
                 return lid === rid
               })
               if (!exists && rid) {
@@ -90,6 +93,11 @@ Page(
         })
     },
 
+    /**
+     * @param {number} type
+     * @param {any} props
+     * @returns {any}
+     */
     _cw(type, props) {
       const w = hmUI.createWidget(type, props)
       this.state.widgets.push(w)
@@ -169,6 +177,7 @@ Page(
       })
     },
 
+    /** @param {import('../../utils/storage').Stop[]} favorites */
     renderFavoritesList(favorites) {
       const listTop = HEADER_H + 8
 
@@ -178,6 +187,11 @@ Page(
       })
     },
 
+    /**
+     * @param {import('../../utils/storage').Stop} stop
+     * @param {number} index
+     * @param {number} cardY
+     */
     renderStopCard(stop, index, cardY) {
       const cardNav = () =>
         push({
@@ -193,7 +207,7 @@ Page(
         this.renderPage()
       }
 
-      const stopName = stop.StopName || 'Unknown stop'
+      const stopName = stop.StopName || 'Неизвестная остановка'
       const address = stop.Address || ''
       const routeItems = Array.isArray(stop.Routes) ? stop.Routes : []
       const routes = []
@@ -210,6 +224,7 @@ Page(
       const displayRoutes = routes.slice(0, 7)
 
       // null = undecided, 'h' = horizontal, 'v' = vertical
+      /** @type {'h' | 'v' | null} */
       let gestureDir = null
       let touchStartX = 0
       let touchStartY = 0
@@ -307,7 +322,7 @@ Page(
       for (const route of displayRoutes) {
         const badgeW = Math.max(32, route.num.length * 11 + 10)
         if (badgeX + badgeW > CONTENT_W - 8) break
-        const color = ROUTE_TYPE_COLORS[route.type] || ROUTE_TYPE_COLORS[0]
+        const color = (/** @type {Record<number, number>} */ (ROUTE_TYPE_COLORS))[route.type] || ROUTE_TYPE_COLORS[0]
         navGroup.createWidget(hmUI.widget.FILL_RECT, {
           x: badgeX, y: badgeY, w: badgeW, h: 24, color, radius: 4,
         })
@@ -319,6 +334,7 @@ Page(
         badgeX += badgeW + 4
       }
 
+      /** @param {number} offset */
       const applyOffset = (offset) => {
         const newX = MARGIN + offset
         cardBg.setProperty(hmUI.prop.MORE, { x: newX, y: cardY, w: CONTENT_W, h: CARD_H })
@@ -343,14 +359,14 @@ Page(
 
       this.state.resets.push(resetCard)
 
-      navGroup.addEventListener(hmUI.event.CLICK_DOWN, (e) => {
+      navGroup.addEventListener(hmUI.event.CLICK_DOWN, (/** @type {any} */ e) => {
         touchStartX = e.x
         touchStartY = e.y
         currentOffset = isRevealed ? -SNAP_REVEAL_W : 0
         gestureDir = null
       })
 
-      navGroup.addEventListener(hmUI.event.MOVE, (e) => {
+      navGroup.addEventListener(hmUI.event.MOVE, (/** @type {any} */ e) => {
         const dx = e.x - touchStartX
         const absDx = Math.abs(dx)
         const absDy = Math.abs(e.y - touchStartY)
@@ -416,6 +432,7 @@ Page(
 
     },
 
+    /** @param {number} count */
     renderAddButton(count) {
       const listBottom = HEADER_H + 8 + count * (CARD_H + CARD_GAP)
       const btnY = Math.max(listBottom + 8, SCREEN_H - ADD_BTN_H - 24)

@@ -36,8 +36,10 @@ Page(
       query: '',
       searching: false,
       results: [],
+      /** @type {string | null} */
       error: null,
       selectedCity: 'minsk',
+      /** @type {{ stop: () => void } | null} */
       spinner: null,
     },
 
@@ -100,7 +102,7 @@ Page(
               hmUI.deleteKeyboard()
             },
           })
-        } catch (e) {
+        } catch (/** @type {any} */ e) {
           logger.log('Keyboard open failed:', e)
           hmUI.showToast({ text: 'Keyboard unavailable' })
         }
@@ -123,7 +125,7 @@ Page(
       // Status / searching indicator
       if (this.state.searching) {
         const centerY = inputY + INPUT_H + (SCREEN_H - inputY - INPUT_H) / 2
-        if (this.state.spinner) this.state.spinner.stop()
+        if (this.state.spinner && this.state.spinner.stop) this.state.spinner.stop()
         this.state.spinner = createSpinner(
           SCREEN_W / 2, centerY - 20,
           16, 3, COLOR_TEXT
@@ -148,7 +150,7 @@ Page(
           text: this.state.error,
           text_size: FONT_SIZE_SMALL,
           color: COLOR_ERROR,
-          align_h: hmUI.align.CENTER,
+          align_h: hmUI.align.CENTER_H,
           align_v: hmUI.align.CENTER_V,
         })
       }
@@ -166,6 +168,10 @@ Page(
       })
     },
 
+    /**
+     * @param {import('../../utils/storage').Stop} stop
+     * @returns {string[]}
+     */
     getRouteLines(stop) {
       if (!stop.Routes || !Array.isArray(stop.Routes)) return []
       const seen = new Set()
@@ -180,6 +186,11 @@ Page(
       return lines
     },
 
+    /**
+     * @param {import('../../utils/storage').Stop} stop
+     * @param {number} rowY
+     * @returns {number}
+     */
     renderResultRow(stop, rowY) {
       const routeLines = this.getRouteLines(stop)
       const rowH = RESULT_BASE_H + routeLines.length * ROUTE_LINE_H + 8
@@ -190,7 +201,7 @@ Page(
         this.request({
           method: 'SAVE_FAVORITES',
           params: { favorites: loadFavorites() },
-        }).catch(() => {})
+        }).catch(() => { })
         back()
       }
 

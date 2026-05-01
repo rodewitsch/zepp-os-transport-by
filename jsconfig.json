@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "module": "commonjs",
-    "target": "ES6",
+    "target": "es2024",
     "checkJs": true,
     "noUnusedLocals": false,
     "paths": {
