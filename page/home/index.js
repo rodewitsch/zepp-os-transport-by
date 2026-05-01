@@ -202,7 +202,7 @@ Page(
         const r = item.result || item
         const num = r.Number || ''
         const type = r.Type != null ? r.Type : 0
-        if (num && !seen.has(num)) {
+        if (num && !seen.has(num) && type !== 3) {
           seen.add(num)
           routes.push({ num, type })
         }

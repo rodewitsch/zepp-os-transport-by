@@ -129,9 +129,14 @@ async function searchStops(query, lang) {
     try {
       const routesRaw = await postWithFallback(`${API_BASE}/GetStopRouts`, {
         StopId: String(stop.StopId),
+        Types: [0, 1, 2, 4],
       });
 
-      const items = Array.isArray(routesRaw) ? routesRaw : []
+      const allItems = Array.isArray(routesRaw) ? routesRaw : []
+      const items = allItems.filter((item) => {
+        const r = item.result || item
+        return r.Type !== 3
+      })
       // Build a compact summary: "91→Веснинка  100→Минск-Южный"
       const seen = new Set()
       const parts = []
@@ -161,6 +166,7 @@ async function getArrivals(stopId, lang) {
   console.log(`Fetching arrivals for stopId=${stopId}, lang=${lang}`)
   const newBody = await postWithFallback(`${API_BASE}/GetScoreboard`, {
     StopId: String(stopId),
+    Types: [0, 1, 2, 4],
   })
 
   return normalizeArrivals(newBody, stopId);
@@ -204,7 +210,7 @@ function normalizeArrivals(raw, stopId) {
       }
     })
     .sort((a, b) => a.minutes - b.minutes)
-    .filter((a) => a.route && a.minutes != null && a.minutes < 60)
+    .filter((a) => a.route && a.minutes != null && a.minutes < 60 && a.type !== 3)
 
   console.log(`Normalized arrivals for stopId=${stopId}:`, arrivals)
   return { stopId, arrivals }

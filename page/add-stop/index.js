@@ -172,7 +172,7 @@ Page(
       const lines = []
       for (const item of stop.Routes) {
         const r = item.result || item
-        if (r.Number && r.FinishStopName && !seen.has(r.Number)) {
+        if (r.Number && r.FinishStopName && !seen.has(r.Number) && r.Type !== 3) {
           seen.add(r.Number)
           lines.push(r.Number + ' → ' + r.FinishStopName)
         }
