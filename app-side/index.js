@@ -147,11 +147,11 @@ async function searchStops(query, lang) {
           parts.push(r.Number + '→' + r.FinishStopName)
         }
       }
-      stop.RoutesSummary = parts.join('  ')
+      stop.RoutesSummary = parts
       stop.Routes = items
     } catch (e) {
       console.log('GetStopRouts failed for', stop.StopId, e)
-      stop.RoutesSummary = ''
+      stop.RoutesSummary = []
       stop.Routes = []
     }
   }

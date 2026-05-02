@@ -4,9 +4,15 @@ AppSettingsPage({
     searchResults: [],
     favorites: [],
     searching: false,
+    initialized: false,
   },
 
   build(props) {
+    if (!this.state.initialized) {
+      this.state.initialized = true
+      props.settingsStorage.setItem('searchResults', JSON.stringify([]))
+      props.settingsStorage.setItem('searching', 'false')
+    }
     this.loadStorage(props)
 
     const { settingsStorage } = props
@@ -19,26 +25,25 @@ AppSettingsPage({
       return View(
         {
           style: {
+            textAlign: 'left',
             display: 'flex',
             flexDirection: 'row',
             alignItems: 'center',
             padding: '12px',
-            borderBottom: '1px solid #333',
+            borderBottom: '1px solid #333'
           },
         },
         [
-          View({ style: { flex: 1 } }, [
+          View({ style: { display: 'flex', flexDirection: 'column', flex: 1, width: '100px' } }, [
             Text({ bold: true }, stop.StopName || ''),
             Text(
               { style: { fontSize: '12px', color: '#888' } },
               stop.Address || ''
             ),
-            stop.RoutesSummary
-              ? Text(
-                { style: { fontSize: '11px', color: '#2196f3', marginTop: '4px' } },
-                stop.RoutesSummary
-              )
-              : undefined,
+            (stop.RoutesSummary && stop.RoutesSummary.map
+              ? stop.RoutesSummary.map((part) => Text({ style: { fontSize: '12px', color: '#555' } }, part))
+              : Text({ style: { fontSize: '12px', color: '#555', fontStyle: 'italic' } }, 'Нет данных о маршрутах')
+            )
           ]),
           alreadyAdded
             ? Text({ style: { color: '#00c853', fontSize: '12px' } }, '★ Добавлено')
@@ -67,6 +72,7 @@ AppSettingsPage({
       View(
         {
           style: {
+            textAlign: 'left',
             display: 'flex',
             flexDirection: 'row',
             alignItems: 'center',
@@ -75,7 +81,7 @@ AppSettingsPage({
           },
         },
         [
-          View({ style: { flex: 1 } }, [
+          View({ style: { flex: 1, display: 'flex', flexDirection: 'column' } }, [
             Text({ bold: true }, fav.StopName || ''),
             Text(
               { style: { fontSize: '12px', color: '#888' } },
@@ -102,25 +108,33 @@ AppSettingsPage({
     )
 
     // --- Layout ---
-    return Section({ title: 'Остановка — Настройки' }, [
+    return Section({}, [
       // Search
-      Section({ title: 'Поиск остановки' }, [
-        TextInput({
-          label: 'Название остановки',
+      Section({}, [
+        Text({ style: { marginBottom: '8px', fontSize: '20px', bold: true, textAlign: 'center', display: 'block' } }, 'Поиск остановок'),
+        View({
+          style: {
+            display: 'flex',
+            border: '1px solid #333',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            margin: '0 10px 8px',
+            padding: '0 12px',
+            borderRadius: '8px',
+            height: '40px',
+            fontSize: '14px',
+            alignItems: 'center',
+          }
+        }, [TextInput({
+          label: this.state.searchQuery || 'Введите название остановки',
+          labelStyle: {
+            padding: '10px 0',
+            display: 'flex',
+            width: '90vw',
+            height: '5vh',
+          },
           onChange: (val) => {
             // Keep in ephemeral state only — no settingsStorage write to avoid re-render
-            this.state.searchQuery = val
-          },
-        }),
-        Button({
-          label: this.state.searching ? 'Поиск...' : 'Искать',
-          style: {
-            background: '#2196f3',
-            color: '#fff',
-            borderRadius: '8px',
-            marginTop: '8px',
-          },
-          onClick: () => {
+            this.state.searchQuery = val;
             const query = this.state.searchQuery || ''
             if (query.trim().length >= 2) {
               settingsStorage.setItem('searching', 'true')
@@ -135,6 +149,24 @@ AppSettingsPage({
             }
           },
         }),
+        Button({
+          label: 'X',
+          style: {
+            position: 'absolute',
+            right: '10px',
+            fontSize: '14px',
+            background: '#880000',
+            color: '#fff',
+            borderRadius: '0 8px 8px 0',
+            height: '5.2vh',
+            marginTop: '',
+          },
+          onClick: () => {
+            this.state.searchQuery = ''
+            settingsStorage.setItem('searching', 'false')
+            settingsStorage.setItem('searchResults', JSON.stringify([]))
+          },
+        })]),
         this.state.searching
           ? Text(
             { style: { color: '#888', padding: '8px 0', fontStyle: 'italic' } },
@@ -147,33 +179,25 @@ AppSettingsPage({
 
       // Favorites
       Section(
-        { title: 'Избранные остановки (' + this.state.favorites.length + ')' },
-        this.state.favorites.length > 0
-          ? [
-            ...favoritesUI,
-            Button({
-              label: 'Очистить все',
-              style: {
-                background: '#880000',
-                color: '#fff',
-                borderRadius: '8px',
-                marginTop: '12px',
-              },
-              onClick: () => {
-                settingsStorage.setItem('favorites', JSON.stringify([]))
-              },
-            }),
-          ]
-          : Text(
-            { style: { color: '#888', fontStyle: 'italic' } },
-            'Нет избранных остановок. Используйте поиск выше.'
-          )
+        {
+          style: {
+            marginTop: '20px',
+          }
+        },
+        [
+          Text({ style: { marginBottom: '8px', fontSize: '20px', bold: true, textAlign: 'center', display: 'block' } }, 'Избранные остановки (' + this.state.favorites.length + ')'),
+          this.state.favorites.length > 0
+            ? favoritesUI
+            : Text(
+              { style: { color: '#888', fontStyle: 'italic' } },
+              'Нет избранных остановок. Используйте поиск выше.'
+            )]
       ),
     ])
   },
 
   loadStorage(props) {
-    const s = props.settingsStorage
+    const s = props.settingsStorage;
 
     try {
       const f = s.getItem('favorites')
