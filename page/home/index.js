@@ -38,7 +38,7 @@ const HEADER_H = 10
 const CARD_H = 120
 const CARD_GAP = 8
 const ADD_BTN_H = 56
-const EMPTY_ICON_SIZE = 64
+const EMPTY_ICON_SIZE = 128
 const SNAP_REVEAL_W = 72
 const SWIPE_REVEAL_THRESHOLD = 40
 
@@ -140,13 +140,12 @@ Page(
       const centerY = SCREEN_H / 2
 
       // Bus icon (placeholder)
-      this._cw(hmUI.widget.TEXT, {
+      this._cw(hmUI.widget.IMG, {
         x: (SCREEN_W - EMPTY_ICON_SIZE) / 2,
-        y: centerY - 80,
+        y: centerY - 120,
         w: EMPTY_ICON_SIZE,
         h: EMPTY_ICON_SIZE,
-        text: '🚌',
-        text_size: 48,
+        src: 'icon.png',
         color: COLOR_TEXT_DIM,
         align_h: hmUI.align.CENTER_H,
         align_v: hmUI.align.CENTER_V,
@@ -157,20 +156,8 @@ Page(
         y: centerY - 10,
         w: CONTENT_W,
         h: 30,
-        text: 'No favorites yet',
+        text: 'Нет избранных остановок',
         text_size: FONT_SIZE_BODY,
-        color: COLOR_TEXT_DIM,
-        align_h: hmUI.align.CENTER_H,
-        align_v: hmUI.align.CENTER_V,
-      })
-
-      this._cw(hmUI.widget.TEXT, {
-        x: MARGIN,
-        y: centerY + 28,
-        w: CONTENT_W,
-        h: 26,
-        text: 'Tap + to add a stop',
-        text_size: FONT_SIZE_SMALL,
         color: COLOR_TEXT_DIM,
         align_h: hmUI.align.CENTER_H,
         align_v: hmUI.align.CENTER_V,
