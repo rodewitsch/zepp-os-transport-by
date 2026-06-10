@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.1.0](https://github.com/rodewitsch/zepp-os-transport-by/compare/v1.0.0...v1.1.0) (2026-06-10)
+
+
+### Features
+
+* change start screen appearance ([ed1fc8a](https://github.com/rodewitsch/zepp-os-transport-by/commit/ed1fc8ae823a5f0705a9ae9fb0125d9c43b18d41))
+
 ## 1.0.0 (2026-05-02)
 
 
