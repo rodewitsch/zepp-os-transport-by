@@ -6,6 +6,8 @@
 // If endpoints change, update API_BASE below.
 // ===========================================================
 
+import { getDeviceInfo, SCREEN_SHAPE_ROUND } from '@zos/device';
+
 export const API_BASE = 'https://transport-by.app/api/v1';
 
 // Endpoints:
@@ -17,12 +19,19 @@ export const API_BASE = 'https://transport-by.app/api/v1';
 export const STORAGE_KEY_FAVORITES = 'transport_by_favorites';
 export const STORAGE_KEY_SETTINGS = 'transport_by_settings';
 
-// UI layout constants for Amazfit Bip 6
-// Screen: 390 x 450 px, design width 390
-export const SCREEN_W = 390;
-export const SCREEN_H = 450;
-export const MARGIN = 16;
+// UI layout constants — dynamically resolved from device info
+const deviceInfo = getDeviceInfo();
+export const SCREEN_W = deviceInfo.width;
+export const SCREEN_H = deviceInfo.height;
+export const IS_ROUND = deviceInfo.screenShape === SCREEN_SHAPE_ROUND;
+
+export const MARGIN = IS_ROUND ? 40 : 16;
 export const CONTENT_W = SCREEN_W - MARGIN * 2;
+
+// Safe offsets for round screens (content near top/bottom edges gets clipped
+// by the circular bezel). On square screens a small header is enough.
+export const HEADER_TOP = IS_ROUND ? 44 : 10;
+export const BOTTOM_PAD = IS_ROUND ? 32 : 24;
 
 // Colors
 export const COLOR_BG = 0x000000;

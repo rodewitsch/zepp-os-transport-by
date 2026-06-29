@@ -13,6 +13,7 @@ import {
   SCREEN_W,
   MARGIN,
   CONTENT_W,
+  HEADER_TOP,
   COLOR_PRIMARY,
   COLOR_TEXT,
   COLOR_TEXT_DIM,
@@ -27,7 +28,6 @@ import { createSpinner } from '../../utils/spinner'
 const logger = Logger.getLogger('arrivals')
 
 // Layout
-const HEADER_H = 10
 const ROW_H = 72
 const ROW_GAP = 4
 const FOOTER_INFO_H = 28
@@ -178,7 +178,7 @@ Page(
 
       this.state.footerTimeText = hmUI.createWidget(hmUI.widget.TEXT, {
         x: 0,
-        y: HEADER_H,
+        y: HEADER_TOP,
         w: SCREEN_W,
         h: FOOTER_INFO_H,
         text: 'Обновлено: --:--:--',
@@ -213,13 +213,13 @@ Page(
     renderLoading() {
       if (this.state.spinner) this.state.spinner.stop()
       this.state.spinner = createSpinner(
-        SCREEN_W / 2, HEADER_H + 100,
+        SCREEN_W / 2, HEADER_TOP + 100,
         16, 3, COLOR_TEXT
       )
 
       this.addWidget(hmUI.widget.TEXT, {
         x: MARGIN,
-        y: HEADER_H + 130,
+        y: HEADER_TOP + 130,
         w: CONTENT_W,
         h: 28,
         text: 'Подключение к transport-by.app',
@@ -233,7 +233,7 @@ Page(
     renderError() {
       this.addWidget(hmUI.widget.TEXT, {
         x: MARGIN,
-        y: HEADER_H + 60,
+        y: HEADER_TOP + 60,
         w: CONTENT_W,
         h: 40,
         text: '⚠ Failed to load',
@@ -245,7 +245,7 @@ Page(
 
       this.addWidget(hmUI.widget.TEXT, {
         x: MARGIN,
-        y: HEADER_H + 110,
+        y: HEADER_TOP + 110,
         w: CONTENT_W,
         h: 60,
         text: this.state.error,
@@ -260,7 +260,7 @@ Page(
     renderNoArrivals() {
       this.addWidget(hmUI.widget.TEXT, {
         x: MARGIN,
-        y: HEADER_H + 70,
+        y: HEADER_TOP + 70,
         w: CONTENT_W,
         h: 40,
         text: 'No buses coming',
@@ -272,7 +272,7 @@ Page(
 
       this.addWidget(hmUI.widget.TEXT, {
         x: MARGIN,
-        y: HEADER_H + 118,
+        y: HEADER_TOP + 118,
         w: CONTENT_W,
         h: 28,
         text: 'Service may not run now',
@@ -287,7 +287,7 @@ Page(
       // Updated time at top
       this.renderLastUpdated()
 
-      const startY = HEADER_H + FOOTER_INFO_H + 4
+      const startY = HEADER_TOP + FOOTER_INFO_H + 4
       const arrivals = this.state.arrivals;
 
       arrivals.forEach((arrival, i) => {

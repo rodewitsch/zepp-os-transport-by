@@ -56,6 +56,38 @@
         }
       ],
       "designWidth": 390
+    },
+    "balance2": {
+      "module": {
+        "page": {
+          "pages": [
+            "page/home/index",
+            "page/arrivals/index",
+            "page/add-stop/index"
+          ]
+        },
+        "app-side": {
+          "path": "app-side/index"
+        },
+        "setting": {
+          "path": "setting/index"
+        }
+      },
+      "platforms": [
+        {
+          "name": "Amazfit Balance 2",
+          "deviceSource": 9568512
+        },
+        {
+          "name": "Amazfit Balance 2",
+          "deviceSource": 9568513
+        },
+        {
+          "name": "Amazfit Balance 2",
+          "deviceSource": 9568515
+        }
+      ],
+      "designWidth": 480
     }
   },
   "i18n": {

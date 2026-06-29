@@ -7,6 +7,7 @@ import {
   SCREEN_H,
   MARGIN,
   CONTENT_W,
+  HEADER_TOP,
   COLOR_BG,
   COLOR_PRIMARY,
   COLOR_ACCENT,
@@ -24,7 +25,6 @@ import { createSpinner } from '../../utils/spinner'
 const logger = Logger.getLogger('add-stop')
 
 // Layout
-const HEADER_H = 10
 const INPUT_H = 52
 const ROUTE_LINE_H = 18
 const RESULT_BASE_H = 52  // name + address
@@ -70,7 +70,7 @@ Page(
 
     renderSearchSection() {
       // Two rows of city selector (3 cities each)
-      const sectionY = HEADER_H + 24;
+      const sectionY = HEADER_TOP + 24;
 
       // Text input widget
       const inputY = sectionY;
@@ -159,7 +159,7 @@ Page(
     renderResults() {
       if (this.state.results.length === 0) return
 
-      const headerOffset = HEADER_H + INPUT_H + 10
+      const headerOffset = HEADER_TOP + INPUT_H + 10
       let curY = headerOffset
 
       this.state.results.forEach((stop) => {

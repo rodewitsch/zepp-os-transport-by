@@ -9,6 +9,8 @@ import {
   SCREEN_H,
   MARGIN,
   CONTENT_W,
+  HEADER_TOP,
+  BOTTOM_PAD,
   COLOR_BG,
   COLOR_PRIMARY,
   COLOR_TEXT,
@@ -34,7 +36,6 @@ const ROUTE_TYPE_COLORS = {
 }
 
 // Layout constants
-const HEADER_H = 10
 const CARD_H = 120
 const CARD_GAP = 8
 const ADD_BTN_H = 56
@@ -166,7 +167,7 @@ Page(
 
     /** @param {import('../../utils/storage').Stop[]} favorites */
     renderFavoritesList(favorites) {
-      const listTop = HEADER_H + 8
+      const listTop = HEADER_TOP + 8
 
       favorites.forEach((stop, index) => {
         const cardY = listTop + index * (CARD_H + CARD_GAP)
@@ -421,8 +422,8 @@ Page(
 
     /** @param {number} count */
     renderAddButton(count) {
-      const listBottom = HEADER_H + 8 + count * (CARD_H + CARD_GAP)
-      const btnY = Math.max(listBottom + 8, SCREEN_H - ADD_BTN_H - 24)
+      const listBottom = HEADER_TOP + 8 + count * (CARD_H + CARD_GAP)
+      const btnY = Math.max(listBottom + 8, SCREEN_H - ADD_BTN_H - BOTTOM_PAD)
 
       this._cw(hmUI.widget.BUTTON, {
         x: MARGIN,
