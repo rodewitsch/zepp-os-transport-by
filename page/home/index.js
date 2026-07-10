@@ -11,6 +11,7 @@ import {
   CONTENT_W,
   HEADER_TOP,
   BOTTOM_PAD,
+  IS_ROUND,
   COLOR_BG,
   COLOR_PRIMARY,
   COLOR_TEXT,
@@ -20,6 +21,7 @@ import {
   FONT_SIZE_BODY,
   FONT_SIZE_SMALL,
   FONT_SIZE_TINY,
+  getSafeBottomDims,
 } from '../../utils/constants'
 import { loadFavorites, saveFavorites, removeFavorite } from '../../utils/storage'
 
@@ -129,12 +131,10 @@ Page(
 
       if (favorites.length === 0) {
         this.renderEmptyState()
+        this.renderAddButton(0, true)
       } else {
         this.renderFavoritesList(favorites)
       }
-
-      // Add button at bottom
-      this.renderAddButton(favorites.length)
     },
 
     renderEmptyState() {
@@ -167,11 +167,51 @@ Page(
 
     /** @param {import('../../utils/storage').Stop[]} favorites */
     renderFavoritesList(favorites) {
-      const listTop = HEADER_TOP + 8
+      const listTop = HEADER_TOP + 4
+      const count = favorites.length
+
+      // Available height inside the scroll container
+      const availableH = SCREEN_H - listTop
+      // Total height of all cards + gap + button
+      const totalContentH = count * (CARD_H + CARD_GAP) + 8 + ADD_BTN_H
+      const fitsOnScreen = totalContentH <= availableH
+
+      // Scrollable container fills the remaining screen height
+      const scrollContainer = this._cw(hmUI.widget.VIEW_CONTAINER, {
+        x: 0,
+        y: listTop,
+        w: SCREEN_W,
+        h: availableH,
+        scroll_enable: fitsOnScreen ? 0 : 1,
+      })
 
       favorites.forEach((stop, index) => {
-        const cardY = listTop + index * (CARD_H + CARD_GAP)
-        this.renderStopCard(stop, index, cardY)
+        const cardY = index * (CARD_H + CARD_GAP)
+        this.renderStopCard(stop, index, cardY, scrollContainer)
+      })
+
+      const btnW = IS_ROUND ? Math.floor(CONTENT_W * 0.65) : CONTENT_W
+      const padX = Math.floor((CONTENT_W - btnW) / 2)
+
+      // Button position:
+      // - если всё влезает — прижимаем к нижнему краю экрана
+      // - если не влезает — ставим сразу после последней карточки (скролл)
+      const btnY = fitsOnScreen
+        ? SCREEN_H - ADD_BTN_H - BOTTOM_PAD - listTop
+        : count * (CARD_H + CARD_GAP) + 8
+
+      scrollContainer.createWidget(hmUI.widget.BUTTON, {
+        x: MARGIN + padX,
+        y: btnY,
+        w: btnW,
+        h: ADD_BTN_H,
+        normal_color: COLOR_PRIMARY,
+        press_color: 0x00a884,
+        text: '+ добавить',
+        color: COLOR_BG,
+        text_size: FONT_SIZE_BODY,
+        radius: 28,
+        click_func: () => push({ url: 'page/add-stop/index' })
       })
     },
 
@@ -179,8 +219,10 @@ Page(
      * @param {import('../../utils/storage').Stop} stop
      * @param {number} index
      * @param {number} cardY
+     * @param {any} [parent]
      */
-    renderStopCard(stop, index, cardY) {
+    renderStopCard(stop, index, cardY, parent) {
+      const cw = parent ? (type, props) => parent.createWidget(type, props) : (...args) => this._cw(...args)
       const cardNav = () =>
         push({
           url: 'page/arrivals/index',
@@ -222,7 +264,7 @@ Page(
       // ── Layer 2: delete tap area (GROUP, below navGroup in z-order) ──
       // Exposed only when navGroup slides left far enough.
       // isRevealed guard prevents accidental fire if touch propagation surprises.
-      const deleteGroup = this._cw(hmUI.widget.GROUP, {
+      const deleteGroup = cw(hmUI.widget.GROUP, {
         x: MARGIN + CONTENT_W - SNAP_REVEAL_W,
         y: cardY,
         w: SNAP_REVEAL_W,
@@ -257,7 +299,7 @@ Page(
       })
 
       // ── Layer 3: sliding card background ──
-      const cardBg = this._cw(hmUI.widget.FILL_RECT, {
+      const cardBg = cw(hmUI.widget.FILL_RECT, {
         x: MARGIN,
         y: cardY,
         w: CONTENT_W,
@@ -267,7 +309,7 @@ Page(
       })
 
       // ── Layer 4: nav group (covers deleteGroup when in default position) ──
-      const navGroup = this._cw(hmUI.widget.GROUP, {
+      const navGroup = cw(hmUI.widget.GROUP, {
         x: MARGIN,
         y: cardY,
         w: CONTENT_W,
@@ -276,14 +318,14 @@ Page(
 
       // Stop name
       navGroup.createWidget(hmUI.widget.TEXT, {
-        x: 10,
-        y: 8,
-        w: CONTENT_W - 10,
-        h: 34,
+        x: IS_ROUND ? 14 : 10,
+        y: address ? 14 : 26,
+        w: CONTENT_W - (IS_ROUND ? 28 : 20),
+        h: address ? 26 : 34,
         text: stopName,
         text_size: FONT_SIZE_BODY,
         color: COLOR_TEXT,
-        align_h: hmUI.align.LEFT,
+        align_h: IS_ROUND ? hmUI.align.CENTER_H : hmUI.align.LEFT,
         align_v: hmUI.align.CENTER_V,
         text_style: hmUI.text_style.ELLIPSIS,
       })
@@ -291,25 +333,35 @@ Page(
       // Address
       if (address) {
         navGroup.createWidget(hmUI.widget.TEXT, {
-          x: 10,
-          y: 46,
-          w: CONTENT_W - 10,
-          h: 26,
+          x: IS_ROUND ? 14 : 10,
+          y: 44,
+          w: CONTENT_W - (IS_ROUND ? 28 : 20),
+          h: 24,
           text: address,
           text_size: FONT_SIZE_SMALL,
           color: COLOR_TEXT_DIM,
-          align_h: hmUI.align.LEFT,
+          align_h: IS_ROUND ? hmUI.align.CENTER_H : hmUI.align.LEFT,
           align_v: hmUI.align.CENTER_V,
           text_style: hmUI.text_style.ELLIPSIS,
         })
       }
 
-      // Route badges (group-relative coordinates)
-      const badgeY = CARD_H - 36
-      let badgeX = 8
-      for (const route of displayRoutes) {
-        const badgeW = Math.max(32, route.num.length * 11 + 10)
-        if (badgeX + badgeW > CONTENT_W - 8) break
+      // Route badges – centered on round, left-aligned on square
+      const badgeY = address ? 80 : 72
+      const badgeGap = 4
+      const badgeWidths = displayRoutes.map(r => Math.max(32, r.num.length * 11 + 10))
+      let totalBadgeW = 0
+      let badgeCount = 0
+      for (let i = 0; i < badgeWidths.length; i++) {
+        const nextW = totalBadgeW + badgeWidths[i] + (badgeCount > 0 ? badgeGap : 0)
+        if (nextW > CONTENT_W - 16) break
+        totalBadgeW = nextW
+        badgeCount++
+      }
+      let badgeX = IS_ROUND ? Math.floor((CONTENT_W - totalBadgeW) / 2) : 8
+      for (let i = 0; i < badgeCount; i++) {
+        const route = displayRoutes[i]
+        const badgeW = badgeWidths[i]
         const color = (/** @type {Record<number, number>} */ (ROUTE_TYPE_COLORS))[route.type] || ROUTE_TYPE_COLORS[0]
         navGroup.createWidget(hmUI.widget.FILL_RECT, {
           x: badgeX, y: badgeY, w: badgeW, h: 24, color, radius: 4,
@@ -319,7 +371,7 @@ Page(
           text: route.num, text_size: FONT_SIZE_TINY, color: 0x000000,
           align_h: hmUI.align.CENTER_H, align_v: hmUI.align.CENTER_V,
         })
-        badgeX += badgeW + 4
+        badgeX += badgeW + badgeGap
       }
 
       /** @param {number} offset */
@@ -420,15 +472,18 @@ Page(
 
     },
 
-    /** @param {number} count */
-    renderAddButton(count) {
-      const listBottom = HEADER_TOP + 8 + count * (CARD_H + CARD_GAP)
-      const btnY = Math.max(listBottom + 8, SCREEN_H - ADD_BTN_H - BOTTOM_PAD)
+    /** @param {number} count @param {boolean} [forceBottom] */
+    renderAddButton(count, forceBottom = false) {
+      const listBottom = HEADER_TOP + 4 + count * (CARD_H + CARD_GAP)
+      const btnY = forceBottom
+        ? SCREEN_H - ADD_BTN_H - BOTTOM_PAD
+        : Math.min(listBottom + 8, SCREEN_H - ADD_BTN_H - BOTTOM_PAD)
+      const { w: btnW, x: padX } = getSafeBottomDims(btnY, ADD_BTN_H, CONTENT_W)
 
       this._cw(hmUI.widget.BUTTON, {
-        x: MARGIN,
+        x: MARGIN + padX,
         y: btnY,
-        w: CONTENT_W,
+        w: btnW,
         h: ADD_BTN_H,
         normal_color: COLOR_PRIMARY,
         press_color: 0x00a884,

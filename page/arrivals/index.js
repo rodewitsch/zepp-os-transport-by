@@ -11,6 +11,7 @@ import {
 import { BasePage } from '@zeppos/zml/base-page'
 import {
   SCREEN_W,
+  SCREEN_H,
   MARGIN,
   CONTENT_W,
   HEADER_TOP,
@@ -22,6 +23,7 @@ import {
   FONT_SIZE_BODY,
   FONT_SIZE_SMALL,
   FONT_SIZE_TINY,
+  IS_ROUND,
 } from '../../utils/constants'
 import { createSpinner } from '../../utils/spinner'
 
@@ -212,16 +214,17 @@ Page(
 
     renderLoading() {
       if (this.state.spinner) this.state.spinner.stop()
+      const centerY = Math.floor(SCREEN_H / 2)
       this.state.spinner = createSpinner(
-        SCREEN_W / 2, HEADER_TOP + 100,
+        SCREEN_W / 2, centerY - 20,
         16, 3, COLOR_TEXT
       )
 
       this.addWidget(hmUI.widget.TEXT, {
         x: MARGIN,
-        y: HEADER_TOP + 130,
+        y: centerY + 6,
         w: CONTENT_W,
-        h: 28,
+        h: 24,
         text: 'Подключение к transport-by.app',
         text_size: FONT_SIZE_SMALL,
         color: COLOR_TEXT_DIM,
@@ -231,12 +234,15 @@ Page(
     },
 
     renderError() {
+      const blockH = 110 // total height of error block
+      const centerY = Math.floor((SCREEN_H - blockH) / 2)
+
       this.addWidget(hmUI.widget.TEXT, {
         x: MARGIN,
-        y: HEADER_TOP + 60,
+        y: centerY,
         w: CONTENT_W,
         h: 40,
-        text: '⚠ Failed to load',
+        text: '⚠ Ошибка загрузки',
         text_size: FONT_SIZE_BODY,
         color: COLOR_WARNING,
         align_h: hmUI.align.CENTER_H,
@@ -245,10 +251,10 @@ Page(
 
       this.addWidget(hmUI.widget.TEXT, {
         x: MARGIN,
-        y: HEADER_TOP + 110,
+        y: centerY + 50,
         w: CONTENT_W,
         h: 60,
-        text: this.state.error,
+        text: 'Повторите попытку',
         text_size: FONT_SIZE_SMALL,
         color: COLOR_TEXT_DIM,
         align_h: hmUI.align.CENTER_H,
@@ -287,7 +293,7 @@ Page(
       // Updated time at top
       this.renderLastUpdated()
 
-      const startY = HEADER_TOP + FOOTER_INFO_H + 4
+      const startY = HEADER_TOP + FOOTER_INFO_H + (IS_ROUND ? 14 : 4)
       const arrivals = this.state.arrivals;
 
       arrivals.forEach((arrival, i) => {

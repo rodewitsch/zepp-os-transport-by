@@ -53,3 +53,26 @@ export const FONT_SIZE_TINY = 16;
 
 // Request timeout in ms
 export const REQUEST_TIMEOUT = 15000;
+
+/**
+ * Compute the maximum usable content width at a given Y coordinate
+ * for round screens, accounting for circular bezel clipping.
+ * On square screens, returns the requested width unchanged.
+ * @param {number} y - Y position (top of element)
+ * @param {number} elemH - element height
+ * @param {number} defaultW - default width if no clipping
+ * @returns {{ w: number, x: number }} safe width and x offset
+ */
+export function getSafeBottomDims(y, elemH, defaultW) {
+  if (!IS_ROUND) return { w: defaultW, x: 0 }
+  const radius = SCREEN_W / 2
+  // Check the closest-to-edge point of the element (its bottom edge)
+  const elemBottom = y + elemH
+  const distFromCenter = Math.abs(elemBottom - radius)
+  if (distFromCenter >= radius) return { w: 0, x: 0 }
+  const maxHalfW = Math.sqrt(radius * radius - distFromCenter * distFromCenter)
+  const maxW = Math.floor(maxHalfW * 2)
+  const safeW = Math.min(defaultW, maxW - 8) // 8px safety margin
+  const offsetX = Math.floor((defaultW - safeW) / 2)
+  return { w: Math.max(0, safeW), x: Math.max(0, offsetX) }
+}

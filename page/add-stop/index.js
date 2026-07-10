@@ -18,6 +18,7 @@ import {
   FONT_SIZE_BODY,
   FONT_SIZE_SMALL,
   FONT_SIZE_TINY,
+  IS_ROUND,
 } from '../../utils/constants'
 import { addFavorite, loadFavorites } from '../../utils/storage'
 import { createSpinner } from '../../utils/spinner'
@@ -69,15 +70,16 @@ Page(
     },
 
     renderSearchSection() {
-      // Two rows of city selector (3 cities each)
-      const sectionY = HEADER_TOP + 24;
+      const sectionY = HEADER_TOP + 32;
+      const INPUT_W = IS_ROUND ? CONTENT_W - 64 : CONTENT_W;
 
       // Text input widget
       const inputY = sectionY;
+      const inputX = MARGIN + (CONTENT_W - INPUT_W) / 2;
       hmUI.createWidget(hmUI.widget.FILL_RECT, {
-        x: MARGIN,
+        x: inputX,
         y: inputY,
-        w: CONTENT_W,
+        w: INPUT_W,
         h: INPUT_H,
         color: COLOR_CARD_BG,
         radius: 8,
@@ -109,9 +111,9 @@ Page(
       }
 
       hmUI.createWidget(hmUI.widget.BUTTON, {
-        x: MARGIN + 4,
+        x: inputX + 4,
         y: inputY,
-        w: CONTENT_W - 8,
+        w: INPUT_W - 8,
         h: INPUT_H,
         normal_color: COLOR_CARD_BG,
         press_color: 0x2a2a2a,
@@ -124,7 +126,7 @@ Page(
 
       // Status / searching indicator
       if (this.state.searching) {
-        const centerY = inputY + INPUT_H + (SCREEN_H - inputY - INPUT_H) / 2
+        const centerY = Math.floor(SCREEN_H / 2)
         if (this.state.spinner && this.state.spinner.stop) this.state.spinner.stop()
         this.state.spinner = createSpinner(
           SCREEN_W / 2, centerY - 20,
@@ -159,7 +161,7 @@ Page(
     renderResults() {
       if (this.state.results.length === 0) return
 
-      const headerOffset = HEADER_TOP + INPUT_H + 10
+      const headerOffset = HEADER_TOP + 32 + INPUT_H + 10
       let curY = headerOffset
 
       this.state.results.forEach((stop) => {
