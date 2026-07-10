@@ -1,39 +1,55 @@
-# Transport BY – Zepp OS Mini Program
+# Остановка – Transport BY Zepp OS Mini Program
 
-A Zepp OS Mini Program for **Amazfit Bip 6** that shows real-time public transport
-arrival predictions from [transport-by.app](https://transport-by.app/), the official
-passenger transport app for the Republic of Belarus.
+A Zepp OS Mini Program for **Amazfit Bip 6** and **Amazfit Balance 2** that shows
+real-time public transport arrival predictions from [transport-by.app](https://transport-by.app/),
+the official passenger transport app for the Republic of Belarus.
 
 ## Features
 
-- **Favourite stops** – save favourite bus/tram/trolleybus/metro stops on the watch
+- **Multi-device** – supports both Amazfit Bip 6 (390 px design width) and Amazfit Balance 2 (480 px design width)
+- **Round screen support** – safe-area calculations for circular watch bezels
+- **Favourite stops** – save bus/tram/trolleybus/metro stops on the watch
 - **Live arrivals** – see upcoming vehicles with minutes-until-arrival, colour-coded by transport type
 - **Auto-refresh** – arrivals update every 30 seconds automatically
-- **Bright screen** – screen stays on for 1 hour while viewing arrivals
-- **Stop search** – search stops by name in the Zepp phone app companion settings
-- **Swipe to delete** – swipe a stop card left on the home screen to reveal the delete button
-- **Offline safe** – graceful error messages when offline
+- **Bright screen** – screen stays on and palm/drop-wrist sleep is disabled while viewing arrivals
+- **Stop search** – search stops by name on the watch using the on-device keyboard, or in the Zepp phone app Settings UI
+- **Swipe to delete** – swipe a stop card left on the home screen to reveal a red delete button
+- **Route summaries** – when searching, each stop shows its available routes with destination names (e.g. `91→Веснинка`)
+- **Favourites sync** – favourites added/removed on the watch are synced to the phone Settings UI and vice versa
+- **Offline safe** – graceful error messages when offline or API unavailable
+
+## Supported devices
+
+| Device | Design width | Device sources |
+|--------|-------------|----------------|
+| Amazfit Bip 6 | 390 px | `9765120`, `9765121`, `10158337` |
+| Amazfit Balance 2 | 480 px | `9568512`, `9568513`, `9568515` |
 
 ## App structure
 
 ```
 zepp-os-transport-by-app/
-├── app.json              ← Mini Program configuration (Bip 6 device IDs & permissions)
-├── app.js                ← App lifecycle & global data
+├── app.json                 ← Multi-target Mini Program configuration (Bip 6 & Balance 2)
+├── app.js                   ← App lifecycle & global data
 ├── package.json
 ├── jsconfig.json
+├── CHANGELOG.md
+├── README.md
 ├── app-side/
-│   └── index.js          ← Companion service (runs on phone; all HTTP requests made here)
+│   └── index.js             ← Companion service (runs on phone; all HTTP requests made here)
 ├── page/
-│   ├── home/index.js     ← Favourite stops list (entry point); swipe-to-delete cards
-│   ├── arrivals/index.js ← Live arrival board for a selected stop; auto-refreshes
-│   └── add-stop/index.js ← Search & add a new favourite stop from the watch
+│   ├── home/index.js        ← Favourite stops list (entry point); swipe-to-delete cards, favourites sync
+│   ├── arrivals/index.js    ← Live arrival board for a selected stop; auto-refreshes every 30 s
+│   └── add-stop/index.js    ← Search & add a new favourite stop from the watch (on-device keyboard)
 ├── setting/
-│   └── index.js          ← Zepp Settings App UI (runs on phone); stop search & favourites management
-└── utils/
-    ├── constants.js      ← API base URL, storage keys, UI colours, layout sizes, font sizes
-    ├── spinner.js        ← Animated arc spinner widget for watch pages
-    └── storage.js        ← LocalStorage helpers for favourites & settings
+│   └── index.js             ← Zepp Settings App UI (runs on phone); stop search, route summaries, favourites management
+├── utils/
+│   ├── constants.js         ← Device-aware layout constants (screen size, safe zones, colours, fonts)
+│   ├── spinner.js           ← Animated arc spinner widget for loading states
+│   └── storage.js           ← LocalStorage helpers for favourites & settings
+├── assets/
+│   ├── bip6/                ← Bip 6 device assets (icons, images)
+│   └── balance2/            ← Balance 2 device assets (icons, images)
 ```
 
 ## How it works
@@ -60,11 +76,12 @@ Settings App re-renders with results
                       ─── GET_FAVORITES ──► app-side syncs to device LocalStorage
 ```
 
-Network requests are made exclusively in the **companion** (app-side) because the Zepp OS
-device does not have direct internet access; it communicates with the phone over BLE.
+Network requests are made exclusively in the **companion** (`app-side/index.js`) because the
+Zepp OS device does not have direct internet access; it communicates with the phone over BLE.
 
 Stop search in the Settings App is driven by a `settingsStorage` listener in `app-side/index.js`
-instead of a direct message request, which avoids blocking the settings UI.
+instead of a direct message request, which avoids blocking the settings UI. Favourites are
+bidirectionally synced between the device (`LocalStorage`) and phone (`settingsStorage`).
 
 ## API endpoints used
 
@@ -77,6 +94,7 @@ All requests use `POST` against the **transport-by.app** internal API:
 | `POST` | `https://transport-by.app/api/GetScoreboard` | Get live arrival predictions |
 
 > **Note:** These endpoints are reverse-engineered from the public web app.  
+> The API response can be JSON or NDJSON—`app-side/index.js` handles both formats.
 > If an endpoint changes shape, update `normalizeArrivals()` or the relevant
 > handler in `app-side/index.js`.
 
@@ -98,6 +116,71 @@ All requests use `POST` against the **transport-by.app** internal API:
 | 2 | Tram | Red `#f44336` |
 | 3 | Minibus | Orange `#ff9800` *(filtered out from arrivals)* |
 | 4 | Metro | Purple `#9c27b0` |
+
+## Key modules
+
+### `app-side/index.js` – Companion service
+
+- **`searchStops(query, lang)`** – searches stops via `POST /api/Search`, then enriches each result with route data via `POST /api/GetStopRouts` (excluding minibuses). Builds a compact `RoutesSummary` string per stop.
+- **`getArrivals(stopId, lang)`** – fetches live arrivals via `POST /api/GetScoreboard`, normalises the response (handles both JSON and NDJSON formats).
+- **`normalizeArrivals(raw, stopId)`** – normalises quote characters, sorts by minutes, filters out minibuses and arrivals > 60 min.
+- Settings Storage listener – intercepts `searchRequest` key changes from the Settings App and writes results back to `searchResults`.
+
+### `page/home/index.js` – Home (favourite stops)
+
+- Renders a scrollable list of favourite stop cards with route-type colour badges.
+- Swipe-to-delete: swiping a card left reveals a red delete button. Tapping background resets all revealed cards.
+- Empty state with app icon when no favourites exist; an "Add stop" button is always visible.
+- On `build()`, syncs favourites from the phone (`GET_FAVORITES`) and merges with local storage.
+
+### `page/arrivals/index.js` – Arrivals board
+
+- Displays live arrivals for a selected stop: route number, direction, and minutes until arrival.
+- Colour-coded by transport type (bus/trolleybus/tram/metro).
+- Auto-refreshes every 30 seconds with a timestamp footer.
+- Keeps the screen on (1 hour bright time + disables palm/drop-wrist sleep).
+
+### `page/add-stop/index.js` – Add stop (watch)
+
+- Opens an on-device keyboard for entering a stop name.
+- Sends `SEARCH_STOPS` to the companion and displays results with route summaries.
+- Each result has an add button to save to favourites.
+
+### `setting/index.js` – Settings App (phone)
+
+- Full search UI with text input, debounced search via `settingsStorage`.
+- Displays search results with stop name, address, and route summaries.
+- Add/remove favourites with +/✕ buttons. Already-added stops show "★ Добавлено".
+
+### `utils/constants.js` – Layout & design tokens
+
+- Screen dimensions and safe-area calculations via `getSafeBottomDims()` for round screens.
+- Colour palette, font sizes, and spacing constants.
+- Storage key names.
+
+### `utils/spinner.js` – Animated spinner
+
+- Creates an arc-based spinning indicator using `hmUI.widget.ARC` rotating with `setInterval`.
+- Exposes a `stop()` method to clean up the timer and widget.
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Start dev server
+npm run dev
+
+# Build for production
+npm run build
+
+# Preview on device
+npm run preview
+```
+
+The project uses [`@zeppos/zeus-cli`](https://github.com/zepp-health/zeus-cli) for building
+and deploying. Version bumps follow [standard-version](https://github.com/conventional-changelog/standard-version).
 
 ## Getting started
 
