@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.2.0](https://github.com/rodewitsch/zepp-os-transport-by/compare/v1.1.0...v1.2.0) (2026-07-10)
+
+
+### Features
+
+* balance 2 setup ([96a70fc](https://github.com/rodewitsch/zepp-os-transport-by/commit/96a70fc900a2e20581df43dd4156420b6080df05))
+* enhancements for round screens ([f068268](https://github.com/rodewitsch/zepp-os-transport-by/commit/f0682685447e3d7d734500fb1e2c9cde365e1613))
+
 ## [1.1.0](https://github.com/rodewitsch/zepp-os-transport-by/compare/v1.0.0...v1.1.0) (2026-06-10)
 
 
