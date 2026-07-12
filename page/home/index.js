@@ -138,25 +138,32 @@ Page(
     },
 
     renderEmptyState() {
-      const centerY = SCREEN_H / 2
+      const TEXT_H = 30
+      const ICON_TEXT_GAP = 10
+      const ICON_NATIVE_SIZE = 80
 
-      // Bus icon (placeholder)
+      // Vertically center the icon + text group as a whole
+      const groupH = EMPTY_ICON_SIZE + ICON_TEXT_GAP + TEXT_H
+      const groupTop = (SCREEN_H - groupH) / 2
+
+      // Bus stop icon — icon.png is 80×80. Render at native size without
+      // w/h so the IMG widget doesn't stretch it. Center the 80×80 image
+      // within the EMPTY_ICON_SIZE (128) vertical slot and horizontally
+      // on screen using the actual image width.
+      // ⚠️ Do NOT use align_h/align_v on IMG — they change x,y to
+      // mean center-point instead of top-left, breaking centering.
       this._cw(hmUI.widget.IMG, {
-        x: (SCREEN_W - EMPTY_ICON_SIZE) / 2,
-        y: centerY - 120,
-        w: EMPTY_ICON_SIZE,
-        h: EMPTY_ICON_SIZE,
+        x: (SCREEN_W - ICON_NATIVE_SIZE) / 2,
+        y: groupTop + (EMPTY_ICON_SIZE - ICON_NATIVE_SIZE) / 2,
         src: 'icon.png',
         color: COLOR_TEXT_DIM,
-        align_h: hmUI.align.CENTER_H,
-        align_v: hmUI.align.CENTER_V,
       })
 
       this._cw(hmUI.widget.TEXT, {
         x: MARGIN,
-        y: centerY - 10,
+        y: groupTop + EMPTY_ICON_SIZE + ICON_TEXT_GAP,
         w: CONTENT_W,
-        h: 30,
+        h: TEXT_H,
         text: 'Нет избранных остановок',
         text_size: FONT_SIZE_BODY,
         color: COLOR_TEXT_DIM,
