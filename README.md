@@ -1,12 +1,12 @@
 # Остановка – Transport BY Zepp OS Mini Program
 
-A Zepp OS Mini Program for **Amazfit Bip 6** and **Amazfit Balance 2** that shows
+A Zepp OS Mini Program for **Amazfit Bip 6**, **Amazfit Balance 2**, **Amazfit T-Rex 3**, **Amazfit T-Rex 3 Pro**, **Amazfit Active 2**, and **Amazfit Bip Max** that shows
 real-time public transport arrival predictions from [transport-by.app](https://transport-by.app/),
 the official passenger transport app for the Republic of Belarus.
 
 ## Features
 
-- **Multi-device** – supports both Amazfit Bip 6 (390 px design width) and Amazfit Balance 2 (480 px design width)
+- **Multi-device** – supports Amazfit Bip 6 (390 px), Balance 2 (480 px), T-Rex 3 (480 px), T-Rex 3 Pro (480 px), Active 2 (466 px), and Bip Max (432 px)
 - **Round screen support** – safe-area calculations for circular watch bezels
 - **Favourite stops** – save bus/tram/trolleybus/metro stops on the watch
 - **Live arrivals** – see upcoming vehicles with minutes-until-arrival, colour-coded by transport type
@@ -20,10 +20,14 @@ the official passenger transport app for the Republic of Belarus.
 
 ## Supported devices
 
-| Device | Design width | Device sources |
-|--------|-------------|----------------|
-| Amazfit Bip 6 | 390 px | `9765120`, `9765121`, `10158337` |
-| Amazfit Balance 2 | 480 px | `9568512`, `9568513`, `9568515` |
+| Device | Design width | Screen shape | Device sources |
+|--------|-------------|-------------|----------------|
+| Amazfit Bip 6 | 390 px | Square | `9765120`, `9765121`, `10158337` |
+| Amazfit Balance 2 | 480 px | Round | `9568512`, `9568513`, `9568515` |
+| Amazfit T-Rex 3 | 480 px | Round | `8716544`, `8716545`, `8716547` |
+| Amazfit T-Rex 3 Pro | 480 px | Round | `10551552`, `10551553`, `10551555` |
+| Amazfit Active 2 | 466 px | Round | `8913152`, `8913153`, `8913155`, `8913159`, `10092800`, `10092801`, `10092803`, `10092807` |
+| Amazfit Bip Max | 432 px | Square | `11206915` |
 
 ## App structure
 
@@ -49,7 +53,11 @@ zepp-os-transport-by-app/
 │   └── storage.js           ← LocalStorage helpers for favourites & settings
 ├── assets/
 │   ├── bip6/                ← Bip 6 device assets (icons, images)
-│   └── balance2/            ← Balance 2 device assets (icons, images)
+│   ├── balance2/            ← Balance 2 device assets (icons, images)
+│   ├── trex3/               ← T-Rex 3 device assets
+│   ├── trex3pro/            ← T-Rex 3 Pro device assets
+│   ├── active2/             ← Active 2 device assets
+│   └── bipmax/              ← Bip Max device assets
 ```
 
 ## How it works

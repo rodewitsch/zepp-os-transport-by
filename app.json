@@ -88,6 +88,146 @@
         }
       ],
       "designWidth": 480
+    },
+    "trex3": {
+      "module": {
+        "page": {
+          "pages": [
+            "page/home/index",
+            "page/arrivals/index",
+            "page/add-stop/index"
+          ]
+        },
+        "app-side": {
+          "path": "app-side/index"
+        },
+        "setting": {
+          "path": "setting/index"
+        }
+      },
+      "platforms": [
+        {
+          "name": "Amazfit T-Rex 3",
+          "deviceSource": 8716544
+        },
+        {
+          "name": "Amazfit T-Rex 3",
+          "deviceSource": 8716545
+        },
+        {
+          "name": "Amazfit T-Rex 3",
+          "deviceSource": 8716547
+        }
+      ],
+      "designWidth": 480
+    },
+    "trex3pro": {
+      "module": {
+        "page": {
+          "pages": [
+            "page/home/index",
+            "page/arrivals/index",
+            "page/add-stop/index"
+          ]
+        },
+        "app-side": {
+          "path": "app-side/index"
+        },
+        "setting": {
+          "path": "setting/index"
+        }
+      },
+      "platforms": [
+        {
+          "name": "Amazfit T-Rex 3 Pro",
+          "deviceSource": 10551552
+        },
+        {
+          "name": "Amazfit T-Rex 3 Pro",
+          "deviceSource": 10551553
+        },
+        {
+          "name": "Amazfit T-Rex 3 Pro",
+          "deviceSource": 10551555
+        }
+      ],
+      "designWidth": 480
+    },
+    "active2": {
+      "module": {
+        "page": {
+          "pages": [
+            "page/home/index",
+            "page/arrivals/index",
+            "page/add-stop/index"
+          ]
+        },
+        "app-side": {
+          "path": "app-side/index"
+        },
+        "setting": {
+          "path": "setting/index"
+        }
+      },
+      "platforms": [
+        {
+          "name": "Amazfit Active 2",
+          "deviceSource": 8913152
+        },
+        {
+          "name": "Amazfit Active 2",
+          "deviceSource": 8913153
+        },
+        {
+          "name": "Amazfit Active 2",
+          "deviceSource": 8913155
+        },
+        {
+          "name": "Amazfit Active 2",
+          "deviceSource": 8913159
+        },
+        {
+          "name": "Amazfit Active 2",
+          "deviceSource": 10092800
+        },
+        {
+          "name": "Amazfit Active 2",
+          "deviceSource": 10092801
+        },
+        {
+          "name": "Amazfit Active 2",
+          "deviceSource": 10092803
+        },
+        {
+          "name": "Amazfit Active 2",
+          "deviceSource": 10092807
+        }
+      ],
+      "designWidth": 466
+    },
+    "bipmax": {
+      "module": {
+        "page": {
+          "pages": [
+            "page/home/index",
+            "page/arrivals/index",
+            "page/add-stop/index"
+          ]
+        },
+        "app-side": {
+          "path": "app-side/index"
+        },
+        "setting": {
+          "path": "setting/index"
+        }
+      },
+      "platforms": [
+        {
+          "name": "Amazfit Bip Max",
+          "deviceSource": 11206915
+        }
+      ],
+      "designWidth": 432
     }
   },
   "i18n": {
