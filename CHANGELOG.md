@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.2.1](https://github.com/rodewitsch/zepp-os-transport-by/compare/v1.2.0...v1.2.1) (2026-07-23)
+
+
+### Features
+
+* add support for trex3, trex3pro, active2, bipmax ([b3f1e50](https://github.com/rodewitsch/zepp-os-transport-by/commit/b3f1e502a16a2fbca52520d3f7bfdfcead4cb711))
+
+
+### Bug Fixes
+
+* make entire stop card area tappable, not just text elements ([074922b](https://github.com/rodewitsch/zepp-os-transport-by/commit/074922b5355e744465d73a576af8560cb8a609c3))
+* now favorite stop icons centering ([44e1b0e](https://github.com/rodewitsch/zepp-os-transport-by/commit/44e1b0efe5462d8cd0cfa0c4e0f892bc8b575703))
+* wrap arrivals list in scrollable container ([0bf23a9](https://github.com/rodewitsch/zepp-os-transport-by/commit/0bf23a9658fdddccf0ecf4ab094617e09eb5deb8))
+
 ## [1.2.0](https://github.com/rodewitsch/zepp-os-transport-by/compare/v1.1.0...v1.2.0) (2026-07-10)
 
 
