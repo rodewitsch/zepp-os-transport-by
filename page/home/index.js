@@ -323,6 +323,17 @@ Page(
         h: CARD_H,
       })
 
+      // Transparent hit-target filling the whole card so taps anywhere
+      // on the card register on navGroup, not just on text/badge widgets.
+      navGroup.createWidget(hmUI.widget.FILL_RECT, {
+        x: 0,
+        y: 0,
+        w: CONTENT_W,
+        h: CARD_H,
+        color: 0x000000,
+        alpha: 0,
+      })
+
       // Stop name
       navGroup.createWidget(hmUI.widget.TEXT, {
         x: IS_ROUND ? 14 : 10,
