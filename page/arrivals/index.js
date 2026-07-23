@@ -295,11 +295,27 @@ Page(
 
       const startY = HEADER_TOP + FOOTER_INFO_H + (IS_ROUND ? 14 : 4)
       const arrivals = this.state.arrivals;
+      const count = arrivals.length
+
+      // Available height for the scroll container
+      const availH = SCREEN_H - startY
+      // Total height of all rows
+      const totalContentH = count * (ROW_H + ROW_GAP)
+      const needsScroll = totalContentH > availH
+
+      // Scrollable container fills remaining screen height
+      const scrollContainer = this.addWidget(hmUI.widget.VIEW_CONTAINER, {
+        x: 0,
+        y: startY,
+        w: SCREEN_W,
+        h: availH,
+        scroll_enable: needsScroll ? 1 : 0,
+      })
 
       arrivals.forEach((arrival, i) => {
-        const rowY = startY + i * (ROW_H + ROW_GAP);
-        logger.log('Rendering arrival:', arrival);
-        this.renderArrivalRow(arrival, rowY);
+        const rowY = i * (ROW_H + ROW_GAP)
+        logger.log('Rendering arrival:', arrival)
+        this.renderArrivalRow(arrival, rowY, scrollContainer)
       });
     },
 
@@ -307,13 +323,15 @@ Page(
      * Render a single arrival row.
      * @param {any} arrival - Arrival data object
      * @param {number} rowY - Y-coordinate for the row
+     * @param {any} parent - Parent scroll container for widget creation
      */
-    renderArrivalRow(arrival, rowY) {
+    renderArrivalRow(arrival, rowY, parent) {
+      const cw = (type, props) => parent.createWidget(type, props)
 
       const routeColor = getRouteColor(arrival.type)
 
       // Row background
-      this.addWidget(hmUI.widget.FILL_RECT, {
+      cw(hmUI.widget.FILL_RECT, {
         x: MARGIN,
         y: rowY,
         w: CONTENT_W,
@@ -324,7 +342,7 @@ Page(
 
       // Route number badge
       const badgeW = 60
-      this.addWidget(hmUI.widget.FILL_RECT, {
+      cw(hmUI.widget.FILL_RECT, {
         x: MARGIN + 8,
         y: rowY + (ROW_H - 36) / 2,
         w: badgeW,
@@ -333,7 +351,7 @@ Page(
         radius: 6,
       })
 
-      this.addWidget(hmUI.widget.TEXT, {
+      cw(hmUI.widget.TEXT, {
         x: MARGIN + 8,
         y: rowY + (ROW_H - 36) / 2,
         w: badgeW,
@@ -346,7 +364,7 @@ Page(
       })
 
       // Direction text
-      this.addWidget(hmUI.widget.TEXT, {
+      cw(hmUI.widget.TEXT, {
         x: MARGIN + 8 + badgeW + 8,
         y: rowY,
         w: CONTENT_W - badgeW - 80,
@@ -372,7 +390,7 @@ Page(
             ? COLOR_WARNING
             : COLOR_TEXT
 
-      this.addWidget(hmUI.widget.TEXT, {
+      cw(hmUI.widget.TEXT, {
         x: MARGIN + CONTENT_W - 70,
         y: rowY,
         w: 66,
