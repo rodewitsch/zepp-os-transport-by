@@ -68,8 +68,55 @@ AppSettingsPage({
     })
 
     // --- Favorites ---
-    const favoritesUI = this.state.favorites.map((fav, idx) =>
-      View(
+    const favoritesUI = this.state.favorites.map((fav, idx) => {
+      const isFirst = idx === 0
+      const isLast = idx === this.state.favorites.length - 1
+      const favCount = this.state.favorites.length
+      const isOnly = favCount <= 1
+
+      const btnMoveUp = isFirst || isOnly
+        ? Text({
+            style: { fontSize: '12px', color: '#555', padding: '2px 8px', textAlign: 'center' },
+          }, '▲')
+        : Button({
+            label: '▲',
+            style: {
+              background: '#444',
+              color: '#fff',
+              borderRadius: '4px',
+              fontSize: '12px',
+              padding: '2px 8px',
+              marginBottom: '2px',
+            },
+            onClick: () => {
+              const favs = this.state.favorites.slice()
+              ;[favs[idx - 1], favs[idx]] = [favs[idx], favs[idx - 1]]
+              settingsStorage.setItem('favorites', JSON.stringify(favs))
+            },
+          })
+
+      const btnMoveDown = isLast || isOnly
+        ? Text({
+            style: { fontSize: '12px', color: '#555', padding: '2px 8px', textAlign: 'center' },
+          }, '▼')
+        : Button({
+            label: '▼',
+            style: {
+              background: '#444',
+              color: '#fff',
+              borderRadius: '4px',
+              fontSize: '12px',
+              padding: '2px 8px',
+              marginTop: '2px',
+            },
+            onClick: () => {
+              const favs = this.state.favorites.slice()
+              ;[favs[idx], favs[idx + 1]] = [favs[idx + 1], favs[idx]]
+              settingsStorage.setItem('favorites', JSON.stringify(favs))
+            },
+          })
+
+      return View(
         {
           style: {
             textAlign: 'left',
@@ -81,6 +128,15 @@ AppSettingsPage({
           },
         },
         [
+          View({
+            style: {
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: '8px',
+            },
+          }, [btnMoveUp, btnMoveDown]),
           View({ style: { flex: 1, display: 'flex', flexDirection: 'column' } }, [
             Text({ bold: true }, fav.StopName || ''),
             Text(
@@ -105,7 +161,7 @@ AppSettingsPage({
           }),
         ]
       )
-    )
+    })
 
     // --- Layout ---
     return Section({}, [

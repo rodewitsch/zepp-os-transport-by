@@ -15,6 +15,7 @@ import {
   MARGIN,
   CONTENT_W,
   HEADER_TOP,
+  BOTTOM_PAD,
   COLOR_PRIMARY,
   COLOR_TEXT,
   COLOR_TEXT_DIM,
@@ -297,10 +298,11 @@ Page(
       const arrivals = this.state.arrivals;
       const count = arrivals.length
 
-      // Available height for the scroll container
-      const availH = SCREEN_H - startY
-      // Total height of all rows
-      const totalContentH = count * (ROW_H + ROW_GAP)
+      // Available height for the scroll container (leave bottom padding for round screens)
+      const availH = SCREEN_H - startY - BOTTOM_PAD
+      // Total height of all rows plus extra bottom spacing so the last row can scroll
+      // fully into the visible safe area above the round-screen bezel.
+      const totalContentH = count * (ROW_H + ROW_GAP) + BOTTOM_PAD + availH
       const needsScroll = totalContentH > availH
 
       // Scrollable container fills remaining screen height

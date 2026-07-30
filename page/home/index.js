@@ -65,23 +65,42 @@ Page(
         .then((data) => {
           const remoteFavs = /** @type {import('../../utils/storage').Stop[]} */ (data && data.favorites ? data.favorites : [])
           if (remoteFavs.length > 0) {
-            // Merge: add remote stops not yet in local
             const localFavs = loadFavorites()
             let changed = false
+
+            // Merge: use remote order for matching stops, append new local-only stops
+            const merged = []
+            const mergedIds = new Set()
+
+            // 1) Walk remote order — take matching local stops or new remote stops
             remoteFavs.forEach((rf) => {
               const rid = String(rf.StopId || '')
-              const exists = localFavs.some((lf) => {
-                const lid = String(lf.StopId || '')
-                return lid === rid
-              })
-              if (!exists && rid) {
-                localFavs.push(rf)
+              if (!rid) return
+              const localMatch = localFavs.find(lf => String(lf.StopId || '') === rid)
+              if (localMatch) {
+                merged.push(localMatch)
+              } else {
+                merged.push(rf)       // new stop added on phone
                 changed = true
               }
+              mergedIds.add(rid)
             })
-            if (changed) {
-              saveFavorites(localFavs)
-              this.state.favorites = localFavs
+
+            // 2) Append any local-only stops (added on watch, not yet on phone)
+            localFavs.forEach((lf) => {
+              const lid = String(lf.StopId || '')
+              if (lid && !mergedIds.has(lid)) {
+                merged.push(lf)
+              }
+            })
+
+            // Detect if order actually changed vs local
+            const sameOrder = localFavs.length === merged.length &&
+              localFavs.every((lf, i) => String(lf.StopId || '') === String(merged[i].StopId || ''))
+
+            if (!sameOrder || changed) {
+              saveFavorites(merged)
+              this.state.favorites = merged
               this.renderPage()
             }
           }
