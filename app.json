@@ -5,8 +5,8 @@
     "appName": "Остановка",
     "appType": "app",
     "version": {
-      "code": 1,
-      "name": "1.2.1"
+      "code": 2,
+      "name": "1.2.2"
     },
     "icon": "icon.png",
     "vender": "community",

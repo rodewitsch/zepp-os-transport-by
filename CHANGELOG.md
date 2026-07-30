@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.2.2](https://github.com/rodewitsch/zepp-os-transport-by/compare/v1.2.1...v1.2.2) (2026-07-30)
+
+
+### Bug Fixes
+
+* increase arrivals scrollable canvas so last row is not clipped on round screens ([488e1a1](https://github.com/rodewitsch/zepp-os-transport-by/commit/488e1a1dc1398253f0037cb6e2c871be28f3a298))
+
 ### [1.2.1](https://github.com/rodewitsch/zepp-os-transport-by/compare/v1.2.0...v1.2.1) (2026-07-23)
 
 
