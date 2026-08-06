@@ -75,9 +75,7 @@ AppSettingsPage({
       const isOnly = favCount <= 1
 
       const btnMoveUp = isFirst || isOnly
-        ? Text({
-            style: { fontSize: '12px', color: '#555', padding: '2px 8px', textAlign: 'center' },
-          }, '▲')
+        ? undefined
         : Button({
             label: '▲',
             style: {
@@ -96,9 +94,7 @@ AppSettingsPage({
           })
 
       const btnMoveDown = isLast || isOnly
-        ? Text({
-            style: { fontSize: '12px', color: '#555', padding: '2px 8px', textAlign: 'center' },
-          }, '▼')
+        ? undefined
         : Button({
             label: '▼',
             style: {
