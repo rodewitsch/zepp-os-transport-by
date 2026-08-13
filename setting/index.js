@@ -224,7 +224,6 @@ AppSettingsPage({
           style: {
             display: 'flex',
             border: '1px solid #333',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
             margin: '0 10px 8px',
             padding: '0 12px',
             borderRadius: '8px',
