@@ -54,6 +54,7 @@ AppSettingsPage({
     searchQuery: '',
     searchResults: [],
     favorites: [],
+    expandedStops: {},
     searching: false,
     initialized: false,
   },
@@ -170,13 +171,44 @@ AppSettingsPage({
             },
           })
 
+      const isExpanded = this.state.expandedStops[idx] || false
+      const btnInfo = Button({
+        label: 'ⓘ',
+        style: {
+          background: isExpanded ? '#555' : '#ddd',
+          color: isExpanded ? '#fff' : '#000',
+          borderRadius: '50%',
+          fontSize: '12px',
+          fontWeight: 'bold',
+          padding: '2px 6px',
+          minWidth: '24px',
+          width: '24px',
+          height: '24px',
+          boxShadow: 'none',
+          marginTop: '-4px',
+        },
+        onClick: () => {
+          const expanded = { ...this.state.expandedStops }
+          expanded[idx] = !expanded[idx]
+          this.state.expandedStops = expanded
+          settingsStorage.setItem('expandedStops', JSON.stringify(expanded))
+
+          // Fetch route summary if expanding and not already loaded
+          if (expanded[idx] && (!Array.isArray(fav.RoutesSummary) || fav.RoutesSummary.length === 0)) {
+            settingsStorage.setItem('routeSummaryRequest', JSON.stringify({
+              stopId: fav.StopId,
+              favIndex: idx,
+            }))
+          }
+        },
+      })
+
       return View(
         {
           style: {
             textAlign: 'left',
             display: 'flex',
-            flexDirection: 'row',
-            alignItems: 'center',
+            flexDirection: 'column',
             padding: '12px',
             borderBottom: '1px solid #333',
           },
@@ -185,39 +217,62 @@ AppSettingsPage({
           View({
             style: {
               display: 'flex',
-              flexDirection: 'column',
+              flexDirection: 'row',
               alignItems: 'center',
-              justifyContent: 'center',
-              marginRight: '8px',
             },
-          }, [btnMoveUp, btnMoveDown]),
-          View({ style: { flex: 1, display: 'flex', flexDirection: 'column' } }, [
-            Text({ bold: true }, fav.StopName || ''),
-            Text(
-              { style: { fontSize: '12px', color: '#888' } },
-              fav.Address || ''
-            ),
-            View({ style: { display: 'flex', flexWrap: 'wrap', marginTop: '4px' } }, buildRouteBadges(fav)),
+          }, [
+            View({
+              style: {
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: '8px',
+              },
+            }, [btnMoveUp, btnMoveDown]),
+            View({ style: { flex: 1, display: 'flex', flexDirection: 'column' } }, [
+              Text({ bold: true }, fav.StopName || ''),
+              Text(
+                { style: { fontSize: '12px', color: '#888' } },
+                fav.Address || ''
+              ),
+              View({ style: { display: 'flex', flexWrap: 'wrap', marginTop: '4px', alignItems: 'center' } }, [
+                ...buildRouteBadges(fav),
+                btnInfo,
+              ]),
+            ]),
+            Button({
+              label: '✕',
+              style: {
+                background: '#ddd',
+                color: '#000',
+                borderRadius: '4px',
+                fontSize: '14px',
+                padding: '4px 8px',
+                minWidth: '28px',
+                width: '28px',
+                height: '28px',
+                boxShadow: 'none',
+              },
+              onClick: () => {
+                const favs = this.state.favorites.slice()
+                favs.splice(idx, 1)
+                settingsStorage.setItem('favorites', JSON.stringify(favs))
+              },
+            }),
           ]),
-          Button({
-            label: '✕',
-            style: {
-              background: '#ddd',
-              color: '#000',
-              borderRadius: '4px',
-              fontSize: '14px',
-              padding: '4px 8px',
-              minWidth: '28px',
-              width: '28px',
-              height: '28px',
-              boxShadow: 'none',
-            },
-            onClick: () => {
-              const favs = this.state.favorites.slice()
-              favs.splice(idx, 1)
-              settingsStorage.setItem('favorites', JSON.stringify(favs))
-            },
-          }),
+          isExpanded && Array.isArray(fav.RoutesSummary) && fav.RoutesSummary.length > 0
+            ? View({
+              style: {
+                display: 'flex',
+                flexDirection: 'column',
+                marginTop: '8px',
+                paddingLeft: '40px',
+              },
+            }, fav.RoutesSummary.map((part) =>
+              Text({ style: { fontSize: '12px', color: '#555' } }, part)
+            ))
+            : undefined,
         ]
       )
     })
@@ -329,5 +384,12 @@ AppSettingsPage({
     }
 
     this.state.searching = s.getItem('searching') === 'true'
+
+    try {
+      const e = s.getItem('expandedStops')
+      this.state.expandedStops = e ? JSON.parse(e) : {}
+    } catch (_e) {
+      this.state.expandedStops = {}
+    }
   },
 })

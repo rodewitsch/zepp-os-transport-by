@@ -233,6 +233,41 @@ AppSideService(
             settings.settingsStorage.setItem('searching', 'false')
           }
         }
+
+        // Handle route summary requests from the Settings App
+        if (key === 'routeSummaryRequest' && newValue) {
+          try {
+            const { stopId, favIndex } = JSON.parse(newValue)
+            const routesRaw = await postWithFallback(`${API_BASE}/GetStopRouts`, {
+              StopId: String(stopId),
+              Types: [0, 1, 2, 4],
+            })
+            const allItems = Array.isArray(routesRaw) ? routesRaw : []
+            const items = allItems.filter((item) => {
+              const r = item.result || item
+              return r.Type !== 3
+            })
+            const seen = new Set()
+            const parts = []
+            for (const item of items) {
+              const r = item.result || item
+              if (r.Number && r.FinishStopName && !seen.has(r.Number)) {
+                seen.add(r.Number)
+                parts.push(r.Number + '→' + r.FinishStopName)
+              }
+            }
+
+            // Update the favorite's RoutesSummary and re-save
+            const raw = settings.settingsStorage.getItem('favorites')
+            const favs = raw ? JSON.parse(raw) : []
+            if (favs[favIndex]) {
+              favs[favIndex].RoutesSummary = parts
+              settings.settingsStorage.setItem('favorites', JSON.stringify(favs))
+            }
+          } catch (e) {
+            console.log('Route summary fetch error:', e)
+          }
+        }
       })
     },
 
