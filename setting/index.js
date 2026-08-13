@@ -200,7 +200,7 @@ AppSettingsPage({
             View({ style: { display: 'flex', flexWrap: 'wrap', marginTop: '4px' } }, buildRouteBadges(fav)),
           ]),
           Button({
-            label: '🗑',
+            label: '✕',
             style: {
               background: '#ddd',
               color: '#000',
