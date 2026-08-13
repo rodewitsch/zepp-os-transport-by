@@ -200,13 +200,16 @@ AppSettingsPage({
             View({ style: { display: 'flex', flexWrap: 'wrap', marginTop: '4px' } }, buildRouteBadges(fav)),
           ]),
           Button({
-            label: '✕',
+            label: '🗑',
             style: {
-              background: '#f44336',
-              color: '#fff',
-              borderRadius: '8px',
+              background: '#ddd',
+              color: '#000',
+              borderRadius: '4px',
               fontSize: '14px',
-              padding: '4px 12px',
+              padding: '4px 8px',
+              minWidth: '28px',
+              width: '28px',
+              height: '28px',
               boxShadow: 'none',
             },
             onClick: () => {
