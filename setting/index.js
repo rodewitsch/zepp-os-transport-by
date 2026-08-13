@@ -130,12 +130,14 @@ AppSettingsPage({
         : Button({
             label: '▲',
             style: {
-              background: '#444',
-              color: '#fff',
+              background: '#ddd',
+              color: '#000',
               borderRadius: '4px',
               fontSize: '12px',
-              padding: '2px 8px',
+              padding: '2px 6px',
               marginBottom: '2px',
+              minWidth: '24px',
+              width: '24px',
             },
             onClick: () => {
               const favs = this.state.favorites.slice()
@@ -149,12 +151,14 @@ AppSettingsPage({
         : Button({
             label: '▼',
             style: {
-              background: '#444',
-              color: '#fff',
+              background: '#ddd',
+              color: '#000',
               borderRadius: '4px',
               fontSize: '12px',
-              padding: '2px 8px',
+              padding: '2px 6px',
               marginTop: '2px',
+              minWidth: '24px',
+              width: '24px',
             },
             onClick: () => {
               const favs = this.state.favorites.slice()
