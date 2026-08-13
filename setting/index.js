@@ -106,6 +106,7 @@ AppSettingsPage({
                 borderRadius: '8px',
                 fontSize: '16px',
                 padding: '4px 14px',
+                boxShadow: 'none',
               },
               onClick: () => {
                 const favs = this.state.favorites.slice()
@@ -138,6 +139,7 @@ AppSettingsPage({
               marginBottom: '2px',
               minWidth: '24px',
               width: '24px',
+              boxShadow: 'none',
             },
             onClick: () => {
               const favs = this.state.favorites.slice()
@@ -159,6 +161,7 @@ AppSettingsPage({
               marginTop: '2px',
               minWidth: '24px',
               width: '24px',
+              boxShadow: 'none',
             },
             onClick: () => {
               const favs = this.state.favorites.slice()
@@ -204,6 +207,7 @@ AppSettingsPage({
               borderRadius: '8px',
               fontSize: '14px',
               padding: '4px 12px',
+              boxShadow: 'none',
             },
             onClick: () => {
               const favs = this.state.favorites.slice()
@@ -267,6 +271,7 @@ AppSettingsPage({
             borderRadius: '0 8px 8px 0',
             height: '5.2vh',
             marginTop: '',
+            boxShadow: 'none',
           },
           onClick: () => {
             this.state.searchQuery = ''
