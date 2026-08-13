@@ -1,3 +1,54 @@
+// Route type → badge color (mirrors watch face)
+const ROUTE_TYPE_COLORS = {
+  0: '#00c853', // bus – green
+  1: '#2196f3', // trolleybus – blue
+  2: '#f44336', // tram – red
+  3: '#ff9800', // minibus – orange
+  4: '#9c27b0', // metro – purple
+}
+
+/**
+ * Build route badge elements from a stop's Routes array.
+ * @param {any} stop
+ * @returns {any[]}
+ */
+function buildRouteBadges(stop) {
+  const routeItems = Array.isArray(stop.Routes) ? stop.Routes : []
+  const routes = []
+  const seen = new Set()
+  for (const item of routeItems) {
+    const r = item.result || item
+    const num = r.Number || ''
+    const type = r.Type != null ? r.Type : 0
+    if (num && !seen.has(num) && type !== 3) {
+      seen.add(num)
+      routes.push({ num, type })
+    }
+  }
+  if (routes.length === 0) return []
+
+  return routes.slice(0, 7).map((route) => {
+    const color = ROUTE_TYPE_COLORS[route.type] || ROUTE_TYPE_COLORS[0]
+    return View(
+      {
+        style: {
+          display: 'inline-block',
+          background: color,
+          color: '#fff',
+          borderRadius: '4px',
+          fontSize: '11px',
+          fontWeight: 'bold',
+          padding: '2px 6px',
+          marginRight: '4px',
+          marginBottom: '4px',
+          lineHeight: '1.4',
+        },
+      },
+      [Text({}, route.num)]
+    )
+  })
+}
+
 AppSettingsPage({
   state: {
     searchQuery: '',
@@ -139,6 +190,7 @@ AppSettingsPage({
               { style: { fontSize: '12px', color: '#888' } },
               fav.Address || ''
             ),
+            View({ style: { display: 'flex', flexWrap: 'wrap', marginTop: '4px' } }, buildRouteBadges(fav)),
           ]),
           Button({
             label: '✕',
