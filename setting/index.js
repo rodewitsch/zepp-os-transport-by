@@ -1,18 +1,66 @@
-// Route type → badge color (mirrors watch face)
-const ROUTE_TYPE_COLORS = {
-  0: '#00c853', // bus – green
-  1: '#2196f3', // trolleybus – blue
-  2: '#f44336', // tram – red
-  3: '#ff9800', // minibus – orange
-  4: '#9c27b0', // metro – purple
+function detectDarkTheme() {
+  try {
+    var els = [document.body, document.documentElement, document.body && document.body.firstChild]
+    for (var i = 0; i < els.length; i++) {
+      if (!els[i]) continue
+      var bg = getComputedStyle(els[i]).backgroundColor
+      if (bg) {
+        var m = bg.match(/\d+/g)
+        if (m && m.length >= 3) {
+          var r = +m[0], g = +m[1], b = +m[2]
+          if (r + g + b > 0) {
+            return (0.299 * r + 0.587 * g + 0.114 * b) < 128
+          }
+        }
+      }
+    }
+    var html = document.documentElement
+    if (html) {
+      var cls = (html.className || '') + ' ' + (html.getAttribute('data-theme') || '') + ' ' + (html.getAttribute('data-color-mode') || '')
+      if (/dark/i.test(cls)) return true
+      if (/light/i.test(cls)) return false
+    }
+  } catch (e) {}
+  return typeof window !== 'undefined'
+    && window.matchMedia
+    && window.matchMedia('(prefers-color-scheme: dark)').matches
 }
+
+var isDark = detectDarkTheme()
+
+const THEME = isDark
+  ? {
+    bg: '#1a1a2e',
+    surface: '#16213e',
+    border: '#2a2a4a',
+    text: '#e0e0e0',
+    textSecondary: '#888',
+    textMuted: '#666',
+    btnBg: '#2a2a4a',
+    btnText: '#e0e0e0',
+    accent: '#00c853',
+    inputBorder: '#333',
+  }
+  : {
+    bg: '#ffffff',
+    surface: '#f0f0f0',
+    border: '#ddd',
+    text: '#1a1a1a',
+    textSecondary: '#666',
+    textMuted: '#999',
+    btnBg: '#e0e0e0',
+    btnText: '#1a1a1a',
+    accent: '#00c853',
+    inputBorder: '#ccc',
+  }
 
 /**
  * Build route badge elements from a stop's Routes array.
  * @param {any} stop
+ * @param {any} colors
  * @returns {any[]}
  */
-function buildRouteBadges(stop) {
+function buildRouteBadges(stop, colors) {
   const routeItems = Array.isArray(stop.Routes) ? stop.Routes : []
   const routes = []
   const seen = new Set()
@@ -28,13 +76,12 @@ function buildRouteBadges(stop) {
   if (routes.length === 0) return []
 
   return routes.slice(0, 7).map((route) => {
-    const color = ROUTE_TYPE_COLORS[route.type] || ROUTE_TYPE_COLORS[0]
+    const color = colors[route.type] || colors[0]
     return View(
       {
         style: {
           display: 'inline-block',
           background: color,
-          color: '#fff',
           borderRadius: '4px',
           fontSize: '11px',
           fontWeight: 'bold',
@@ -44,7 +91,7 @@ function buildRouteBadges(stop) {
           lineHeight: '1.4',
         },
       },
-      [Text({}, route.num)]
+      [Text({ style: { color: isDark ? '#000' : '#fff' } }, route.num)]
     )
   })
 }
@@ -60,6 +107,12 @@ AppSettingsPage({
   },
 
   build(props) {
+    isDark = detectDarkTheme()
+
+    const ROUTE_TYPE_COLORS = isDark
+      ? { 0: '#3d8b5e', 1: '#4a7a9e', 2: '#b55252', 3: '#c48a42', 4: '#7a4a8a' }
+      : { 0: '#00c853', 1: '#2196f3', 2: '#f44336', 3: '#ff9800', 4: '#9c27b0' }
+
     if (!this.state.initialized) {
       this.state.initialized = true
       props.settingsStorage.setItem('searchResults', JSON.stringify([]))
@@ -82,27 +135,27 @@ AppSettingsPage({
             flexDirection: 'row',
             alignItems: 'center',
             padding: '12px',
-            borderBottom: '1px solid #333'
+            borderBottom: '1px solid ' + THEME.border
           },
         },
         [
           View({ style: { display: 'flex', flexDirection: 'column', flex: 1, width: '100px' } }, [
-            Text({ bold: true }, stop.StopName || ''),
+            Text({ bold: true, style: { color: THEME.text } }, stop.StopName || ''),
             Text(
-              { style: { fontSize: '12px', color: '#888' } },
+              { style: { fontSize: '12px', color: THEME.textSecondary } },
               stop.Address || ''
             ),
             (stop.RoutesSummary && stop.RoutesSummary.map
-              ? stop.RoutesSummary.map((part) => Text({ style: { fontSize: '12px', color: '#555' } }, part))
-              : Text({ style: { fontSize: '12px', color: '#555', fontStyle: 'italic' } }, 'Нет данных о маршрутах')
+              ? stop.RoutesSummary.map((part) => Text({ style: { fontSize: '12px', color: THEME.textSecondary } }, part))
+              : Text({ style: { fontSize: '12px', color: THEME.textSecondary, fontStyle: 'italic' } }, 'Нет данных о маршрутах')
             )
           ]),
           alreadyAdded
-            ? View({ style: { width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, [Text({ style: { color: '#00c853', fontSize: '18px', fontWeight: 'bold' } }, '✓')])
+            ? View({ style: { width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, [Text({ style: { color: THEME.accent, fontSize: '18px', fontWeight: 'bold' } }, '✓')])
             : Button({
               label: '+',
               style: {
-                background: '#00c853',
+                background: THEME.accent,
                 color: '#fff',
                 borderRadius: '4px',
                 fontSize: '14px',
@@ -135,8 +188,8 @@ AppSettingsPage({
         : Button({
           label: '▲',
           style: {
-            background: '#ddd',
-            color: '#000',
+            background: THEME.btnBg,
+            color: THEME.btnText,
             borderRadius: '4px',
             fontSize: '12px',
             padding: '2px 6px',
@@ -157,8 +210,8 @@ AppSettingsPage({
         : Button({
           label: '▼',
           style: {
-            background: '#ddd',
-            color: '#000',
+            background: THEME.btnBg,
+            color: THEME.btnText,
             borderRadius: '4px',
             fontSize: '12px',
             padding: '2px 6px',
@@ -177,7 +230,7 @@ AppSettingsPage({
       const isExpanded = this.state.expandedStops[idx] || false
       const btnInfo = View({
         style: {
-          background: isExpanded ? '#555' : '#ddd',
+          background: isExpanded ? THEME.surface : THEME.btnBg,
           borderRadius: '50%',
           width: '24px',
           height: '24px',
@@ -202,7 +255,7 @@ AppSettingsPage({
         },
       }, [Text({
         style: {
-          color: isExpanded ? '#fff' : '#000',
+          color: isExpanded ? THEME.text : THEME.btnText,
           fontSize: '17px',
           fontWeight: '200',
           marginTop: '-2px'
@@ -216,7 +269,7 @@ AppSettingsPage({
             display: 'flex',
             flexDirection: 'column',
             padding: '12px',
-            borderBottom: '1px solid #333',
+            borderBottom: '1px solid ' + THEME.border,
           },
         },
         [
@@ -237,21 +290,21 @@ AppSettingsPage({
               },
             }, [btnMoveUp, btnMoveDown]),
             View({ style: { flex: 1, display: 'flex', flexDirection: 'column' } }, [
-              Text({ bold: true }, fav.StopName || ''),
+              Text({ bold: true, style: { color: THEME.text } }, fav.StopName || ''),
               Text(
-                { style: { fontSize: '12px', color: '#888' } },
+                { style: { fontSize: '12px', color: THEME.textSecondary } },
                 fav.Address || ''
               ),
               View({ style: { display: 'flex', flexWrap: 'wrap', marginTop: '4px', alignItems: 'center' } }, [
-                ...buildRouteBadges(fav),
+                ...buildRouteBadges(fav, ROUTE_TYPE_COLORS),
                 btnInfo,
               ]),
             ]),
             Button({
               label: '✕',
               style: {
-                background: '#ddd',
-                color: '#000',
+                background: THEME.btnBg,
+                color: THEME.btnText,
                 borderRadius: '4px',
                 fontSize: '14px',
                 padding: '4px 8px',
@@ -276,7 +329,7 @@ AppSettingsPage({
                 paddingLeft: '40px',
               },
             }, fav.RoutesSummary.map((part) =>
-              Text({ style: { fontSize: '12px', color: '#555' } }, part)
+              Text({ style: { fontSize: '12px', color: THEME.textSecondary } }, part)
             ))
             : undefined,
         ]
@@ -284,13 +337,13 @@ AppSettingsPage({
     })
 
     // --- Layout ---
-    return Section({}, [
+    return Section({ style: { background: THEME.bg, color: THEME.text, padding: '12px 0' } }, [
       // Search
-      Section({}, [
+      Section({ style: { background: THEME.bg } }, [
         View({
           style: {
             position: 'relative',
-            border: '1px solid #333',
+            border: '1px solid ' + THEME.inputBorder,
             margin: '0 10px 8px',
             borderRadius: '8px',
             height: '40px',
@@ -328,8 +381,8 @@ AppSettingsPage({
             right: '6px',
             top: '50%',
             transform: 'translateY(-50%)',
-            background: '#ddd',
-            color: '#000',
+            background: THEME.btnBg,
+            color: THEME.btnText,
             borderRadius: '4px',
             fontSize: '14px',
             padding: '4px 8px',
@@ -346,7 +399,7 @@ AppSettingsPage({
         })]),
         this.state.searching
           ? Text(
-            { style: { color: '#888', padding: '8px 0', fontStyle: 'italic' } },
+            { style: { color: THEME.textSecondary, padding: '8px 0', fontStyle: 'italic' } },
             'Загрузка результатов...'
           )
           : resultsUI.length > 0
@@ -359,14 +412,15 @@ AppSettingsPage({
         {
           style: {
             marginTop: '20px',
+            background: THEME.bg,
           }
         },
         [
-          Text({ style: { marginBottom: '8px', fontSize: '20px', bold: true, textAlign: 'center', display: 'block' } }, 'Избранные (' + this.state.favorites.length + ')'),
+          Text({ style: { marginBottom: '8px', fontSize: '20px', bold: true, textAlign: 'center', display: 'block', color: THEME.text } }, 'Избранные (' + this.state.favorites.length + ')'),
           this.state.favorites.length > 0
             ? favoritesUI
             : Text(
-              { style: { color: '#888', fontStyle: 'italic' } },
+              { style: { color: THEME.textSecondary, fontStyle: 'italic' } },
               'Нет избранных остановок. Используйте поиск выше.'
             )]
       ),
