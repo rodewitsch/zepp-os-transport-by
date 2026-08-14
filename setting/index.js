@@ -78,6 +78,7 @@ AppSettingsPage({
     searching: false,
     initialized: false,
     darkMode: true,
+    refreshInterval: 30,
   },
 
   build(props) {
@@ -309,34 +310,81 @@ AppSettingsPage({
     })
 
     // --- Layout ---
+    const REFRESH_OPTIONS = [
+      { value: 15, label: '15 сек' },
+      { value: 30, label: '30 сек' },
+      { value: 60, label: '1 мин' },
+      { value: 120, label: '2 мин' },
+      { value: 300, label: '5 мин' },
+    ]
+
     return Section({ style: { background: THEME.bg, color: THEME.text, padding: '12px 0' } }, [
-      // Theme toggle
-      View({
-        style: {
-          display: 'flex',
-          flexDirection: 'row',
-          justifyContent: 'flex-end',
-          padding: '0 12px 8px',
-        },
-      }, [
+      // --- General Settings ---
+      Section({ style: { background: THEME.bg, padding: '0 12px 16px' } }, [
+        Text({ style: { fontSize: '18px', bold: true, color: THEME.text, marginBottom: '12px', display: 'block' } }, '⚙️ Настройки'),
+
+        // Theme toggle
         View({
           style: {
-            background: THEME.btnBg,
-            borderRadius: '20px',
-            padding: '6px 14px',
-            cursor: 'pointer',
             display: 'flex',
             flexDirection: 'row',
             alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '10px 0',
+            borderBottom: '1px solid ' + THEME.border,
           },
-          onClick: () => {
-            this.state.darkMode = !this.state.darkMode
-            settingsStorage.setItem('darkMode', this.state.darkMode ? 'true' : 'false')
+        }, [
+          Text({ style: { color: THEME.text, fontSize: '15px' } }, 'Тёмная тема'),
+          View({
+            style: {
+              background: isDark ? THEME.accent : THEME.btnBg,
+              borderRadius: '20px',
+              padding: '6px 14px',
+              cursor: 'pointer',
+            },
+            onClick: () => {
+              this.state.darkMode = !this.state.darkMode
+              settingsStorage.setItem('darkMode', this.state.darkMode ? 'true' : 'false')
+            },
+          }, [Text({ style: { color: '#fff', fontSize: '13px' } }, isDark ? '🌙 Вкл' : '☀️ Выкл')]),
+        ]),
+
+        // Refresh interval
+        View({
+          style: {
+            display: 'flex',
+            flexDirection: 'column',
+            padding: '10px 0',
           },
-        }, [Text({ style: { color: THEME.btnText, fontSize: '14px' } }, isDark ? '🌙 Тёмная' : '☀️ Светлая')]),
+        }, [
+          Text({ style: { color: THEME.text, fontSize: '15px', marginBottom: '8px' } }, 'Обновление данных'),
+          View({
+            style: {
+              display: 'flex',
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              gap: '6px',
+            },
+          }, REFRESH_OPTIONS.map((opt) =>
+            View({
+              style: {
+                background: this.state.refreshInterval === opt.value ? THEME.accent : THEME.btnBg,
+                borderRadius: '16px',
+                padding: '6px 12px',
+                cursor: 'pointer',
+              },
+              onClick: () => {
+                this.state.refreshInterval = opt.value
+                settingsStorage.setItem('refreshInterval', String(opt.value))
+              },
+            }, [Text({ style: { color: this.state.refreshInterval === opt.value ? '#fff' : THEME.btnText, fontSize: '13px' } }, opt.label)])
+          )),
+        ]),
       ]),
-      // Search
-      Section({ style: { background: THEME.bg } }, [
+
+      // --- Stops Management ---
+      Section({ style: { background: THEME.bg, marginTop: '8px' } }, [
+        Text({ style: { fontSize: '18px', bold: true, color: THEME.text, marginBottom: '12px', padding: '0 12px', display: 'block' } }, '🚌 Остановки'),
         View({
           style: {
             position: 'relative',
@@ -405,23 +453,17 @@ AppSettingsPage({
       ]),
 
       // Favorites
-      Section(
-        {
-          style: {
-            marginTop: '20px',
-            background: THEME.bg,
-          }
-        },
-        [
-          Text({ style: { marginBottom: '8px', fontSize: '20px', bold: true, textAlign: 'center', display: 'block', color: THEME.text } }, 'Избранные (' + this.state.favorites.length + ')'),
-          this.state.favorites.length > 0
-            ? favoritesUI
-            : Text(
-              { style: { color: THEME.textSecondary, fontStyle: 'italic' } },
-              'Нет избранных остановок. Используйте поиск выше.'
-            )]
-      ),
-    ])
+      View({ style: { marginTop: '20px' } }, [
+        Text({ style: { marginBottom: '8px', fontSize: '18px', bold: true, textAlign: 'center', display: 'block', color: THEME.text } }, 'Избранные (' + this.state.favorites.length + ')'),
+        this.state.favorites.length > 0
+          ? favoritesUI
+          : Text(
+            { style: { color: THEME.textSecondary, fontStyle: 'italic' } },
+            'Нет избранных остановок. Используйте поиск выше.'
+          )
+      ]),
+    ]),
+  ])
   },
 
   loadStorage(props) {
@@ -452,5 +494,8 @@ AppSettingsPage({
 
     const dm = s.getItem('darkMode')
     this.state.darkMode = dm === null ? true : dm === 'true'
+
+    const ri = s.getItem('refreshInterval')
+    this.state.refreshInterval = ri ? parseInt(ri, 10) || 30 : 30
   },
 })

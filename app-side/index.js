@@ -295,9 +295,10 @@ AppSideService(
           try {
             const raw = settings.settingsStorage.getItem('favorites')
             const favorites = raw ? JSON.parse(raw) : []
-            res(null, { favorites })
+            const refreshInterval = parseInt(settings.settingsStorage.getItem('refreshInterval') || '30', 10) || 30
+            res(null, { favorites, refreshInterval })
           } catch (e) {
-            res(null, { favorites: [] })
+            res(null, { favorites: [], refreshInterval: 30 })
           }
 
         } else if (req.method === 'SAVE_FAVORITES') {
