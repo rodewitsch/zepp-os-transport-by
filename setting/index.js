@@ -77,8 +77,8 @@ AppSettingsPage({
     const { settingsStorage } = props
     const isDark = this.state.darkMode
     const THEME = isDark
-      ? { bg: '#1a1a2e', border: '#2a2a4a', text: '#e0e0e0', textSec: '#888', textMut: '#666', btnBg: '#2a2a4a', btnText: '#e0e0e0', accent: '#5a7aaa', inputBorder: '#333', surface: '#16213e' }
-      : { bg: '#ffffff', border: '#ddd', text: '#1a1a1a', textSec: '#666', textMut: '#999', btnBg: '#e0e0e0', btnText: '#1a1a1a', accent: '#8899aa', inputBorder: '#ccc', surface: '#f0f0f0' }
+      ? { bg: '#1a1a2e', border: '#2a2a4a', text: '#e0e0e0', textSec: '#999', textMut: '#aaa', btnBg: '#2a2a4a', btnText: '#e0e0e0', accent: '#5a7aaa', inputBorder: '#333', surface: '#16213e' }
+      : { bg: '#ffffff', border: '#ddd', text: '#1a1a1a', textSec: '#555', textMut: '#777', btnBg: '#e0e0e0', btnText: '#1a1a1a', accent: '#8899aa', inputBorder: '#ccc', surface: '#f0f0f0' }
     const BADGE_COLORS = isDark
       ? { 0: '#3d8b5e', 1: '#4a7a9e', 2: '#b55252', 3: '#c48a42', 4: '#7a4a8a' }
       : { 0: '#00c853', 1: '#2196f3', 2: '#f44336', 3: '#ff9800', 4: '#9c27b0' }
@@ -112,12 +112,12 @@ AppSettingsPage({
             )
           ]),
           alreadyAdded
-            ? View({ style: { width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, [Text({ style: { color: THEME.accent, fontSize: '18px', fontWeight: 'bold' } }, '✓')])
+            ? View({ style: { width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, [Text({ style: { color: '#00c853', fontSize: '18px', fontWeight: 'bold' } }, '✓')])
             : Button({
               label: '+',
               style: {
-                background: THEME.accent,
-                color: '#fff',
+                background: THEME.btnBg,
+                color: THEME.btnText,
                 borderRadius: '4px',
                 fontSize: '14px',
                 padding: '4px 8px',
@@ -191,7 +191,7 @@ AppSettingsPage({
       const isExpanded = this.state.expandedStops[idx] || false
       const btnInfo = View({
         style: {
-          background: isExpanded ? THEME.surface : THEME.btnBg,
+          background: isExpanded ? THEME.btnBg : THEME.surface,
           borderRadius: '50%',
           width: '24px',
           height: '24px',
@@ -199,7 +199,6 @@ AppSettingsPage({
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
-          marginTop: '-4px',
         },
         onClick: () => {
           const expanded = { ...this.state.expandedStops }
@@ -219,7 +218,7 @@ AppSettingsPage({
           color: isExpanded ? THEME.text : THEME.btnText,
           fontSize: '17px',
           fontWeight: '200',
-          marginTop: '-2px'
+          marginTop: '1px'
         },
       }, 'ⓘ')])
 
@@ -287,7 +286,7 @@ AppSettingsPage({
                 display: 'flex',
                 flexDirection: 'column',
                 marginTop: '8px',
-                paddingLeft: '40px',
+                paddingLeft: '31px',
               },
             }, fav.RoutesSummary.map((part) =>
               Text({ style: { fontSize: '12px', color: THEME.textMut } }, part)
@@ -330,6 +329,7 @@ AppSettingsPage({
               height: '36px',
               fontSize: '14px',
               flex: 1,
+              overflow: 'hidden',
             }
           }, [TextInput({
             label: this.state.searchQuery || 'Введите название остановки',
@@ -339,52 +339,50 @@ AppSettingsPage({
               width: '100%',
               height: '5vh',
               color: THEME.text,
-              backgroundColor: THEME.bg,
             },
             inputStyle: {
               color: THEME.text,
-              backgroundColor: THEME.bg,
             },
-          onChange: (val) => {
-            // Keep in ephemeral state only — no settingsStorage write to avoid re-render
-            this.state.searchQuery = val;
-            const query = this.state.searchQuery || ''
-            if (query.trim().length >= 2) {
-              settingsStorage.setItem('searching', 'true')
+            onChange: (val) => {
+              // Keep in ephemeral state only — no settingsStorage write to avoid re-render
+              this.state.searchQuery = val;
+              const query = this.state.searchQuery || ''
+              if (query.trim().length >= 2) {
+                settingsStorage.setItem('searching', 'true')
+                settingsStorage.setItem('searchResults', JSON.stringify([]))
+                settingsStorage.setItem(
+                  'searchRequest',
+                  JSON.stringify({
+                    query: query.trim(),
+                    timestamp: Date.now(),
+                  })
+                )
+              }
+            },
+          }),
+          Button({
+            label: '✕',
+            style: {
+              position: 'absolute',
+              right: '6px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: THEME.btnBg,
+              color: THEME.btnText,
+              borderRadius: '4px',
+              fontSize: '14px',
+              padding: '4px 8px',
+              minWidth: '28px',
+              width: '28px',
+              height: '28px',
+              boxShadow: 'none',
+            },
+            onClick: () => {
+              this.state.searchQuery = ''
+              settingsStorage.setItem('searching', 'false')
               settingsStorage.setItem('searchResults', JSON.stringify([]))
-              settingsStorage.setItem(
-                'searchRequest',
-                JSON.stringify({
-                  query: query.trim(),
-                  timestamp: Date.now(),
-                })
-              )
-            }
-          },
-        }),
-        Button({
-          label: '✕',
-          style: {
-            position: 'absolute',
-            right: '6px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            background: THEME.btnBg,
-            color: THEME.btnText,
-            borderRadius: '4px',
-            fontSize: '14px',
-            padding: '4px 8px',
-            minWidth: '28px',
-            width: '28px',
-            height: '28px',
-            boxShadow: 'none',
-          },
-          onClick: () => {
-            this.state.searchQuery = ''
-            settingsStorage.setItem('searching', 'false')
-            settingsStorage.setItem('searchResults', JSON.stringify([]))
-          },
-        })]),
+            },
+          })]),
           Button({
             label: '⚙',
             style: {
@@ -498,15 +496,13 @@ AppSettingsPage({
 
     return Section({ style: { background: THEME.bg, color: THEME.text, padding: '16px 12px', minHeight: '100vh' } }, [
       // Back button + Title in one row
-      View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: '16px', position: 'relative' } }, [
-        View({ style: { position: 'absolute', left: '0', top: '50%', transform: 'translateY(-50%)' } }, [
-          Button({
-            label: '←',
-            style: { background: THEME.btnBg, color: THEME.btnText, borderRadius: '20px', fontSize: '16px', padding: '4px 12px', boxShadow: 'none', minWidth: '36px' },
-            onClick: () => { this.state.currentView = 'stops'; settingsStorage.setItem('currentView', 'stops') },
-          }),
-        ]),
-        Text({ style: { fontSize: '20px', bold: true, color: THEME.text, width: '100%', textAlign: 'center' } }, '⚙️ Настройки'),
+      View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: '16px' } }, [
+        View({
+          style: { background: THEME.btnBg, borderRadius: '20px', padding: '6px 12px', cursor: 'pointer', width: '80px' },
+          onClick: () => { this.state.currentView = 'stops'; settingsStorage.setItem('currentView', 'stops') },
+        }, [Text({ style: { color: THEME.btnText, fontSize: '14px' } }, '< Назад')]),
+        Text({ style: { fontSize: '20px', bold: true, color: THEME.text, flex: 1, textAlign: 'center' } }, 'Настройки'),
+        View({ style: { width: '80px' } }),
       ]),
 
       // Theme toggle
@@ -520,7 +516,7 @@ AppSettingsPage({
             this.state.darkMode = !this.state.darkMode
             settingsStorage.setItem('darkMode', this.state.darkMode ? 'true' : 'false')
           },
-        }, [Text({ style: { color: isDark ? '#fff' : '#000', fontSize: '14px' } }, isDark ? '🌙 Вкл' : '☀️ Выкл')]),
+        }, [Text({ style: { color: isDark ? '#fff' : '#000', fontSize: '14px' } }, isDark ? 'Выкл' : 'Вкл')]),
       ]),
 
       // Refresh interval
