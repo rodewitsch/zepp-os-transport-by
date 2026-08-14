@@ -98,15 +98,18 @@ AppSettingsPage({
             )
           ]),
           alreadyAdded
-            ? Text({ style: { color: '#00c853', fontSize: '12px' } }, '★ Добавлено')
+            ? View({ style: { width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, [Text({ style: { color: '#00c853', fontSize: '18px', fontWeight: 'bold' } }, '✓')])
             : Button({
               label: '+',
               style: {
                 background: '#00c853',
                 color: '#fff',
-                borderRadius: '8px',
-                fontSize: '16px',
-                padding: '4px 14px',
+                borderRadius: '4px',
+                fontSize: '14px',
+                padding: '4px 8px',
+                minWidth: '28px',
+                width: '28px',
+                height: '28px',
                 boxShadow: 'none',
               },
               onClick: () => {
