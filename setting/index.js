@@ -1,58 +1,31 @@
-function detectDarkTheme() {
-  try {
-    var els = [document.body, document.documentElement, document.body && document.body.firstChild]
-    for (var i = 0; i < els.length; i++) {
-      if (!els[i]) continue
-      var bg = getComputedStyle(els[i]).backgroundColor
-      if (bg) {
-        var m = bg.match(/\d+/g)
-        if (m && m.length >= 3) {
-          var r = +m[0], g = +m[1], b = +m[2]
-          if (r + g + b > 0) {
-            return (0.299 * r + 0.587 * g + 0.114 * b) < 128
-          }
-        }
-      }
-    }
-    var html = document.documentElement
-    if (html) {
-      var cls = (html.className || '') + ' ' + (html.getAttribute('data-theme') || '') + ' ' + (html.getAttribute('data-color-mode') || '')
-      if (/dark/i.test(cls)) return true
-      if (/light/i.test(cls)) return false
-    }
-  } catch (e) {}
-  return typeof window !== 'undefined'
-    && window.matchMedia
-    && window.matchMedia('(prefers-color-scheme: dark)').matches
+const THEME_DARK = {
+  bg: '#1a1a2e',
+  surface: '#16213e',
+  border: '#2a2a4a',
+  text: '#e0e0e0',
+  textSecondary: '#888',
+  textMuted: '#666',
+  btnBg: '#2a2a4a',
+  btnText: '#e0e0e0',
+  accent: '#00c853',
+  inputBorder: '#333',
 }
 
-var isDark = detectDarkTheme()
+const THEME_LIGHT = {
+  bg: '#ffffff',
+  surface: '#f0f0f0',
+  border: '#ddd',
+  text: '#1a1a1a',
+  textSecondary: '#666',
+  textMuted: '#999',
+  btnBg: '#e0e0e0',
+  btnText: '#1a1a1a',
+  accent: '#00c853',
+  inputBorder: '#ccc',
+}
 
-const THEME = isDark
-  ? {
-    bg: '#1a1a2e',
-    surface: '#16213e',
-    border: '#2a2a4a',
-    text: '#e0e0e0',
-    textSecondary: '#888',
-    textMuted: '#666',
-    btnBg: '#2a2a4a',
-    btnText: '#e0e0e0',
-    accent: '#00c853',
-    inputBorder: '#333',
-  }
-  : {
-    bg: '#ffffff',
-    surface: '#f0f0f0',
-    border: '#ddd',
-    text: '#1a1a1a',
-    textSecondary: '#666',
-    textMuted: '#999',
-    btnBg: '#e0e0e0',
-    btnText: '#1a1a1a',
-    accent: '#00c853',
-    inputBorder: '#ccc',
-  }
+const BADGE_COLORS_DARK = { 0: '#3d8b5e', 1: '#4a7a9e', 2: '#b55252', 3: '#c48a42', 4: '#7a4a8a' }
+const BADGE_COLORS_LIGHT = { 0: '#00c853', 1: '#2196f3', 2: '#f44336', 3: '#ff9800', 4: '#9c27b0' }
 
 /**
  * Build route badge elements from a stop's Routes array.
@@ -60,7 +33,7 @@ const THEME = isDark
  * @param {any} colors
  * @returns {any[]}
  */
-function buildRouteBadges(stop, colors) {
+function buildRouteBadges(stop, colors, isDark) {
   const routeItems = Array.isArray(stop.Routes) ? stop.Routes : []
   const routes = []
   const seen = new Set()
@@ -104,14 +77,13 @@ AppSettingsPage({
     expandedStops: {},
     searching: false,
     initialized: false,
+    darkMode: true,
   },
 
   build(props) {
-    isDark = detectDarkTheme()
-
-    const ROUTE_TYPE_COLORS = isDark
-      ? { 0: '#3d8b5e', 1: '#4a7a9e', 2: '#b55252', 3: '#c48a42', 4: '#7a4a8a' }
-      : { 0: '#00c853', 1: '#2196f3', 2: '#f44336', 3: '#ff9800', 4: '#9c27b0' }
+    const isDark = this.state.darkMode
+    const THEME = isDark ? THEME_DARK : THEME_LIGHT
+    const ROUTE_TYPE_COLORS = isDark ? BADGE_COLORS_DARK : BADGE_COLORS_LIGHT
 
     if (!this.state.initialized) {
       this.state.initialized = true
@@ -296,7 +268,7 @@ AppSettingsPage({
                 fav.Address || ''
               ),
               View({ style: { display: 'flex', flexWrap: 'wrap', marginTop: '4px', alignItems: 'center' } }, [
-                ...buildRouteBadges(fav, ROUTE_TYPE_COLORS),
+                ...buildRouteBadges(fav, ROUTE_TYPE_COLORS, isDark),
                 btnInfo,
               ]),
             ]),
@@ -338,6 +310,31 @@ AppSettingsPage({
 
     // --- Layout ---
     return Section({ style: { background: THEME.bg, color: THEME.text, padding: '12px 0' } }, [
+      // Theme toggle
+      View({
+        style: {
+          display: 'flex',
+          flexDirection: 'row',
+          justifyContent: 'flex-end',
+          padding: '0 12px 8px',
+        },
+      }, [
+        View({
+          style: {
+            background: THEME.btnBg,
+            borderRadius: '20px',
+            padding: '6px 14px',
+            cursor: 'pointer',
+            display: 'flex',
+            flexDirection: 'row',
+            alignItems: 'center',
+          },
+          onClick: () => {
+            this.state.darkMode = !this.state.darkMode
+            settingsStorage.setItem('darkMode', this.state.darkMode ? 'true' : 'false')
+          },
+        }, [Text({ style: { color: THEME.btnText, fontSize: '14px' } }, isDark ? '🌙 Тёмная' : '☀️ Светлая')]),
+      ]),
       // Search
       Section({ style: { background: THEME.bg } }, [
         View({
@@ -452,5 +449,8 @@ AppSettingsPage({
     } catch (_e) {
       this.state.expandedStops = {}
     }
+
+    const dm = s.getItem('darkMode')
+    this.state.darkMode = dm === null ? true : dm === 'true'
   },
 })
