@@ -27,6 +27,7 @@ import {
   IS_ROUND,
 } from '../../utils/constants'
 import { createSpinner } from '../../utils/spinner'
+import { loadRefreshInterval } from '../../utils/storage'
 
 const logger = Logger.getLogger('arrivals')
 
@@ -34,7 +35,7 @@ const logger = Logger.getLogger('arrivals')
 const ROW_H = 72
 const ROW_GAP = 4
 const FOOTER_INFO_H = 28
-const UPDATE_INTERVAL_MS = 30000
+const DEFAULT_UPDATE_INTERVAL_MS = 30000
 const BRIGHT_TIME_MS = 60 * 60 * 1000
 
 const TRANSPORT_TYPES = {
@@ -164,9 +165,10 @@ Page(
 
     startAutoRefresh() {
       this.stopAutoRefresh()
+      const intervalMs = (loadRefreshInterval() || 30) * 1000
       this.state.arrivalsTimer = setInterval(() => {
         this.fetchArrivals(true)
-      }, UPDATE_INTERVAL_MS)
+      }, intervalMs || DEFAULT_UPDATE_INTERVAL_MS)
     },
 
     stopAutoRefresh() {

@@ -58,20 +58,40 @@ export function removeFavorite(index) {
 
 /**
  * Load app settings.
- * @returns {{ language: string }} Settings object
+ * @returns {{ language: string, darkMode: boolean, refreshInterval: number }} Settings object
  */
 export function loadSettings() {
   // @ts-ignore
   return storage.getItem(STORAGE_KEY_SETTINGS, {
     language: 'ru',
+    darkMode: true,
+    refreshInterval: 30,
   });
 }
 
 /**
  * Save app settings.
- * @param {{ language: string }} settings
-
+ * @param {{ language: string, darkMode?: boolean, refreshInterval?: number }} settings
  */
 export function saveSettings(settings) {
   storage.setItem(STORAGE_KEY_SETTINGS, settings)
+}
+
+/**
+ * Load refresh interval (seconds) from settings.
+ * @returns {number}
+ */
+export function loadRefreshInterval() {
+  const s = loadSettings()
+  return s.refreshInterval || 30
+}
+
+/**
+ * Save refresh interval (seconds) to settings.
+ * @param {number} seconds
+ */
+export function saveRefreshInterval(seconds) {
+  const s = loadSettings()
+  s.refreshInterval = seconds
+  saveSettings(s)
 }

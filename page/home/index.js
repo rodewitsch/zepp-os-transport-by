@@ -23,7 +23,7 @@ import {
   FONT_SIZE_TINY,
   getSafeBottomDims,
 } from '../../utils/constants'
-import { loadFavorites, saveFavorites, removeFavorite } from '../../utils/storage'
+import { loadFavorites, saveFavorites, removeFavorite, saveRefreshInterval } from '../../utils/storage'
 
 const logger = Logger.getLogger('home')
 const vibrator = new Vibrator()
@@ -63,6 +63,9 @@ Page(
       // Sync favorites from Settings App (settingsStorage → device LocalStorage)
       this.request({ method: 'GET_FAVORITES', params: {} })
         .then((data) => {
+          if (data && data.refreshInterval) {
+            saveRefreshInterval(data.refreshInterval)
+          }
           const remoteFavs = /** @type {import('../../utils/storage').Stop[]} */ (data && data.favorites ? data.favorites : [])
           if (remoteFavs.length > 0) {
             const localFavs = loadFavorites()
