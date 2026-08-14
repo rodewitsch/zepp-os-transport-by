@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.4.0](https://github.com/rodewitsch/zepp-os-transport-by/compare/v1.3.0...v1.4.0) (2026-08-14)
+
+
+### Features
+
+* add expandable route details button to favorite stops ([a4ba79d](https://github.com/rodewitsch/zepp-os-transport-by/commit/a4ba79deff69ffedf763fa8889aac24049d4bf48))
+* add manual dark/light theme toggle to settings ([c5b266a](https://github.com/rodewitsch/zepp-os-transport-by/commit/c5b266a4e94611e1941f9f77d2ff3479a807bd90))
+* add route number badges to favorite stops in settings ([9cca98f](https://github.com/rodewitsch/zepp-os-transport-by/commit/9cca98fe16b04e9fc9d46a93e3619e6967295f1a))
+* add settings page with theme toggle and refresh interval ([06a4eba](https://github.com/rodewitsch/zepp-os-transport-by/commit/06a4eba23267c7af285838d88d6ad0e5771fbf6d))
+* add system-aware dark/light theme to settings page ([e0fc9ef](https://github.com/rodewitsch/zepp-os-transport-by/commit/e0fc9ef45b043352ae23efe7c5fbce7981854d41))
+* split settings into general and stops sections, add refresh interval ([b167386](https://github.com/rodewitsch/zepp-os-transport-by/commit/b167386f3703ceea3b91b5cab3dd408e5fcda30f))
+
 ## [1.3.0](https://github.com/rodewitsch/zepp-os-transport-by/compare/v1.2.2...v1.3.0) (2026-08-06)
 
 ### [1.2.2](https://github.com/rodewitsch/zepp-os-transport-by/compare/v1.2.1...v1.2.2) (2026-07-30)

@@ -1,6 +1,6 @@
 {
   "name": "bus_stop",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "A Zepp OS app for checking public transport arrivals at your favorite stops in Belarusian cities",
   "scripts": {
     "dev": "zeus dev",
