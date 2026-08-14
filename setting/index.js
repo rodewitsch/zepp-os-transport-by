@@ -12,7 +12,7 @@ const ROUTE_TYPE_COLORS = {
  * @param {any} stop
  * @returns {any[]}
  */
-function buildRouteBadges(stop) {
+function buildRouteBadges(stop, colors, isDark) {
   const routeItems = Array.isArray(stop.Routes) ? stop.Routes : []
   const routes = []
   const seen = new Set()
@@ -28,13 +28,13 @@ function buildRouteBadges(stop) {
   if (routes.length === 0) return []
 
   return routes.slice(0, 7).map((route) => {
-    const color = ROUTE_TYPE_COLORS[route.type] || ROUTE_TYPE_COLORS[0]
+    const color = colors[route.type] || colors[0]
     return View(
       {
         style: {
           display: 'inline-block',
           background: color,
-          color: '#fff',
+          color: isDark ? '#000' : '#fff',
           borderRadius: '4px',
           fontSize: '11px',
           fontWeight: 'bold',
@@ -75,6 +75,13 @@ AppSettingsPage({
     }
 
     const { settingsStorage } = props
+    const isDark = this.state.darkMode
+    const THEME = isDark
+      ? { bg: '#1a1a2e', border: '#2a2a4a', text: '#e0e0e0', textSec: '#888', textMut: '#666', btnBg: '#2a2a4a', btnText: '#e0e0e0', accent: '#5a7aaa', inputBorder: '#333', surface: '#16213e' }
+      : { bg: '#ffffff', border: '#ddd', text: '#1a1a1a', textSec: '#666', textMut: '#999', btnBg: '#e0e0e0', btnText: '#1a1a1a', accent: '#8899aa', inputBorder: '#ccc', surface: '#f0f0f0' }
+    const BADGE_COLORS = isDark
+      ? { 0: '#3d8b5e', 1: '#4a7a9e', 2: '#b55252', 3: '#c48a42', 4: '#7a4a8a' }
+      : { 0: '#00c853', 1: '#2196f3', 2: '#f44336', 3: '#ff9800', 4: '#9c27b0' }
 
     // --- Search Results ---
     const resultsUI = this.state.searchResults.map((stop) => {
@@ -89,27 +96,27 @@ AppSettingsPage({
             flexDirection: 'row',
             alignItems: 'center',
             padding: '12px',
-            borderBottom: '1px solid #333'
+            borderBottom: '1px solid ' + THEME.border
           },
         },
         [
           View({ style: { display: 'flex', flexDirection: 'column', flex: 1, width: '100px' } }, [
-            Text({ bold: true }, stop.StopName || ''),
+            Text({ bold: true, style: { color: THEME.text } }, stop.StopName || ''),
             Text(
-              { style: { fontSize: '12px', color: '#888' } },
+              { style: { fontSize: '12px', color: THEME.textSec } },
               stop.Address || ''
             ),
             (stop.RoutesSummary && stop.RoutesSummary.map
-              ? stop.RoutesSummary.map((part) => Text({ style: { fontSize: '12px', color: '#555' } }, part))
-              : Text({ style: { fontSize: '12px', color: '#555', fontStyle: 'italic' } }, 'Нет данных о маршрутах')
+              ? stop.RoutesSummary.map((part) => Text({ style: { fontSize: '12px', color: THEME.textMut } }, part))
+              : Text({ style: { fontSize: '12px', color: THEME.textMut, fontStyle: 'italic' } }, 'Нет данных о маршрутах')
             )
           ]),
           alreadyAdded
-            ? View({ style: { width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, [Text({ style: { color: '#00c853', fontSize: '18px', fontWeight: 'bold' } }, '✓')])
+            ? View({ style: { width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, [Text({ style: { color: THEME.accent, fontSize: '18px', fontWeight: 'bold' } }, '✓')])
             : Button({
               label: '+',
               style: {
-                background: '#00c853',
+                background: THEME.accent,
                 color: '#fff',
                 borderRadius: '4px',
                 fontSize: '14px',
@@ -142,8 +149,8 @@ AppSettingsPage({
         : Button({
           label: '▲',
           style: {
-            background: '#ddd',
-            color: '#000',
+            background: THEME.btnBg,
+            color: THEME.btnText,
             borderRadius: '4px',
             fontSize: '12px',
             padding: '2px 6px',
@@ -164,8 +171,8 @@ AppSettingsPage({
         : Button({
           label: '▼',
           style: {
-            background: '#ddd',
-            color: '#000',
+            background: THEME.btnBg,
+            color: THEME.btnText,
             borderRadius: '4px',
             fontSize: '12px',
             padding: '2px 6px',
@@ -184,7 +191,7 @@ AppSettingsPage({
       const isExpanded = this.state.expandedStops[idx] || false
       const btnInfo = View({
         style: {
-          background: isExpanded ? '#555' : '#ddd',
+          background: isExpanded ? THEME.surface : THEME.btnBg,
           borderRadius: '50%',
           width: '24px',
           height: '24px',
@@ -209,7 +216,7 @@ AppSettingsPage({
         },
       }, [Text({
         style: {
-          color: isExpanded ? '#fff' : '#000',
+          color: isExpanded ? THEME.text : THEME.btnText,
           fontSize: '17px',
           fontWeight: '200',
           marginTop: '-2px'
@@ -223,7 +230,7 @@ AppSettingsPage({
             display: 'flex',
             flexDirection: 'column',
             padding: '12px',
-            borderBottom: '1px solid #333',
+            borderBottom: '1px solid ' + THEME.border,
           },
         },
         [
@@ -244,21 +251,21 @@ AppSettingsPage({
               },
             }, [btnMoveUp, btnMoveDown]),
             View({ style: { flex: 1, display: 'flex', flexDirection: 'column' } }, [
-              Text({ bold: true }, fav.StopName || ''),
+              Text({ bold: true, style: { color: THEME.text } }, fav.StopName || ''),
               Text(
-                { style: { fontSize: '12px', color: '#888' } },
+                { style: { fontSize: '12px', color: THEME.textSec } },
                 fav.Address || ''
               ),
               View({ style: { display: 'flex', flexWrap: 'wrap', marginTop: '4px', alignItems: 'center' } }, [
-                ...buildRouteBadges(fav),
+                ...buildRouteBadges(fav, BADGE_COLORS, isDark),
                 btnInfo,
               ]),
             ]),
             Button({
               label: '✕',
               style: {
-                background: '#ddd',
-                color: '#000',
+                background: THEME.btnBg,
+                color: THEME.btnText,
                 borderRadius: '4px',
                 fontSize: '14px',
                 padding: '4px 8px',
@@ -283,7 +290,7 @@ AppSettingsPage({
                 paddingLeft: '40px',
               },
             }, fav.RoutesSummary.map((part) =>
-              Text({ style: { fontSize: '12px', color: '#555' } }, part)
+              Text({ style: { fontSize: '12px', color: THEME.textMut } }, part)
             ))
             : undefined,
         ]
@@ -291,9 +298,21 @@ AppSettingsPage({
     })
 
     // --- Layout ---
-    return Section({}, [
+    // Inject CSS to set body/html background for full-screen theme
+    if (typeof document !== 'undefined') {
+      const styleId = 'theme-bg-style'
+      let el = document.getElementById(styleId)
+      if (!el) {
+        el = document.createElement('style')
+        el.id = styleId
+        document.head.appendChild(el)
+      }
+      el.textContent = 'html,body{background:' + THEME.bg + '!important;margin:0;padding:0}'
+    }
+
+    return Section({ style: { background: THEME.bg, color: THEME.text, padding: '12px 0', colorScheme: isDark ? 'dark' : 'light', minHeight: '100vh' } }, [
       // Search + Settings button in one row
-      Section({}, [
+      Section({ style: { background: THEME.bg } }, [
         View({
           style: {
             display: 'flex',
@@ -306,7 +325,7 @@ AppSettingsPage({
           View({
             style: {
               position: 'relative',
-              border: '1px solid #333',
+              border: '1px solid ' + THEME.inputBorder,
               borderRadius: '8px',
               height: '36px',
               fontSize: '14px',
@@ -319,6 +338,12 @@ AppSettingsPage({
               display: 'flex',
               width: '100%',
               height: '5vh',
+              color: THEME.text,
+              backgroundColor: THEME.bg,
+            },
+            inputStyle: {
+              color: THEME.text,
+              backgroundColor: THEME.bg,
             },
           onChange: (val) => {
             // Keep in ephemeral state only — no settingsStorage write to avoid re-render
@@ -344,8 +369,8 @@ AppSettingsPage({
             right: '6px',
             top: '50%',
             transform: 'translateY(-50%)',
-            background: '#ddd',
-            color: '#000',
+            background: THEME.btnBg,
+            color: THEME.btnText,
             borderRadius: '4px',
             fontSize: '14px',
             padding: '4px 8px',
@@ -363,8 +388,8 @@ AppSettingsPage({
           Button({
             label: '⚙',
             style: {
-              background: '#ddd',
-              color: '#000',
+              background: THEME.btnBg,
+              color: THEME.btnText,
               borderRadius: '8px',
               fontSize: '16px',
               padding: '0',
@@ -381,7 +406,7 @@ AppSettingsPage({
         ]),
         this.state.searching
           ? Text(
-            { style: { color: '#888', padding: '8px 0', fontStyle: 'italic' } },
+            { style: { color: THEME.textSec, padding: '8px 0', fontStyle: 'italic' } },
             'Загрузка результатов...'
           )
           : resultsUI.length > 0
@@ -394,14 +419,15 @@ AppSettingsPage({
         {
           style: {
             marginTop: '20px',
+            background: THEME.bg,
           }
         },
         [
-          Text({ style: { marginBottom: '8px', fontSize: '20px', bold: true, textAlign: 'center', display: 'block' } }, 'Избранные (' + this.state.favorites.length + ')'),
+          Text({ style: { marginBottom: '8px', fontSize: '20px', bold: true, textAlign: 'center', display: 'block', color: THEME.text } }, 'Избранные (' + this.state.favorites.length + ')'),
           this.state.favorites.length > 0
             ? favoritesUI
             : Text(
-              { style: { color: '#888', fontStyle: 'italic' } },
+              { style: { color: THEME.textSec, fontStyle: 'italic' } },
               'Нет избранных остановок. Используйте поиск выше.'
             )]
       ),
@@ -448,8 +474,8 @@ AppSettingsPage({
     const isDark = this.state.darkMode
 
     const THEME = isDark
-      ? { bg: '#1a1a2e', border: '#2a2a4a', text: '#e0e0e0', btnBg: '#2a2a4a', btnText: '#e0e0e0', accent: '#00c853' }
-      : { bg: '#ffffff', border: '#ddd', text: '#1a1a1a', btnBg: '#e0e0e0', btnText: '#1a1a1a', accent: '#00c853' }
+      ? { bg: '#1a1a2e', border: '#2a2a4a', text: '#e0e0e0', btnBg: '#2a2a4a', btnText: '#e0e0e0', accent: '#5a7aaa', surface: '#16213e' }
+      : { bg: '#ffffff', border: '#ddd', text: '#1a1a1a', btnBg: '#e0e0e0', btnText: '#1a1a1a', accent: '#8899aa', surface: '#f0f0f0' }
 
     const REFRESH_OPTIONS = [
       { value: 15, label: '15 сек' },
@@ -459,17 +485,29 @@ AppSettingsPage({
       { value: 300, label: '5 мин' },
     ]
 
-    return Section({ style: { background: THEME.bg, color: THEME.text, padding: '16px 12px' } }, [
-      // Back button
-      View({ style: { display: 'flex', flexDirection: 'row', justifyContent: 'flex-start', marginBottom: '12px' } }, [
-        Button({
-          label: '← Назад',
-          style: { background: THEME.btnBg, color: THEME.btnText, borderRadius: '20px', fontSize: '14px', padding: '6px 16px', boxShadow: 'none' },
-          onClick: () => { this.state.currentView = 'stops'; settingsStorage.setItem('currentView', 'stops') },
-        }),
-      ]),
+    if (typeof document !== 'undefined') {
+      const styleId = 'theme-bg-style'
+      let el = document.getElementById(styleId)
+      if (!el) {
+        el = document.createElement('style')
+        el.id = styleId
+        document.head.appendChild(el)
+      }
+      el.textContent = 'html,body{background:' + THEME.bg + '!important;margin:0;padding:0}'
+    }
 
-      Text({ style: { fontSize: '20px', bold: true, color: THEME.text, marginBottom: '16px', display: 'block' } }, '⚙️ Настройки'),
+    return Section({ style: { background: THEME.bg, color: THEME.text, padding: '16px 12px', minHeight: '100vh' } }, [
+      // Back button + Title in one row
+      View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: '16px', position: 'relative' } }, [
+        View({ style: { position: 'absolute', left: '0', top: '50%', transform: 'translateY(-50%)' } }, [
+          Button({
+            label: '←',
+            style: { background: THEME.btnBg, color: THEME.btnText, borderRadius: '20px', fontSize: '16px', padding: '4px 12px', boxShadow: 'none', minWidth: '36px' },
+            onClick: () => { this.state.currentView = 'stops'; settingsStorage.setItem('currentView', 'stops') },
+          }),
+        ]),
+        Text({ style: { fontSize: '20px', bold: true, color: THEME.text, width: '100%', textAlign: 'center' } }, '⚙️ Настройки'),
+      ]),
 
       // Theme toggle
       View({
@@ -482,21 +520,21 @@ AppSettingsPage({
             this.state.darkMode = !this.state.darkMode
             settingsStorage.setItem('darkMode', this.state.darkMode ? 'true' : 'false')
           },
-        }, [Text({ style: { color: '#fff', fontSize: '14px' } }, isDark ? '🌙 Вкл' : '☀️ Выкл')]),
+        }, [Text({ style: { color: isDark ? '#fff' : '#000', fontSize: '14px' } }, isDark ? '🌙 Вкл' : '☀️ Выкл')]),
       ]),
 
       // Refresh interval
       View({ style: { display: 'flex', flexDirection: 'column', padding: '12px 0' } }, [
         Text({ style: { color: THEME.text, fontSize: '15px', marginBottom: '10px' } }, 'Обновление данных'),
-        View({ style: { display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '8px' } },
+        View({ style: { display: 'flex', flexDirection: 'row', gap: '6px' } },
           REFRESH_OPTIONS.map((opt) =>
             View({
-              style: { background: this.state.refreshInterval === opt.value ? THEME.accent : THEME.btnBg, borderRadius: '16px', padding: '8px 14px', cursor: 'pointer' },
+              style: { background: this.state.refreshInterval === opt.value ? THEME.accent : THEME.btnBg, borderRadius: '16px', padding: '8px 0', cursor: 'pointer', flex: 1, textAlign: 'center' },
               onClick: () => {
                 this.state.refreshInterval = opt.value
                 settingsStorage.setItem('refreshInterval', String(opt.value))
               },
-            }, [Text({ style: { color: this.state.refreshInterval === opt.value ? '#fff' : THEME.btnText, fontSize: '14px' } }, opt.label)])
+            }, [Text({ style: { color: this.state.refreshInterval === opt.value ? (isDark ? '#fff' : '#000') : THEME.btnText, fontSize: '13px', textAlign: 'center', display: 'block' } }, opt.label)])
           )
         ),
       ]),
