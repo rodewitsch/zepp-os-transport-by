@@ -284,24 +284,21 @@ AppSettingsPage({
     return Section({}, [
       // Search
       Section({}, [
-        Text({ style: { marginBottom: '8px', fontSize: '20px', bold: true, textAlign: 'center', display: 'block' } }, 'Поиск остановок'),
         View({
           style: {
-            display: 'flex',
+            position: 'relative',
             border: '1px solid #333',
             margin: '0 10px 8px',
-            padding: '0 12px',
             borderRadius: '8px',
             height: '40px',
             fontSize: '14px',
-            alignItems: 'center',
           }
         }, [TextInput({
           label: this.state.searchQuery || 'Введите название остановки',
           labelStyle: {
-            padding: '10px 0',
+            padding: '10px 40px 10px 12px',
             display: 'flex',
-            width: '90vw',
+            width: '100%',
             height: '5vh',
           },
           onChange: (val) => {
@@ -322,16 +319,20 @@ AppSettingsPage({
           },
         }),
         Button({
-          label: 'X',
+          label: '✕',
           style: {
             position: 'absolute',
-            right: '10px',
+            right: '6px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            background: '#ddd',
+            color: '#000',
+            borderRadius: '4px',
             fontSize: '14px',
-            background: '#880000',
-            color: '#fff',
-            borderRadius: '0 8px 8px 0',
-            height: '5.2vh',
-            marginTop: '',
+            padding: '4px 8px',
+            minWidth: '28px',
+            width: '28px',
+            height: '28px',
             boxShadow: 'none',
           },
           onClick: () => {
@@ -358,7 +359,7 @@ AppSettingsPage({
           }
         },
         [
-          Text({ style: { marginBottom: '8px', fontSize: '20px', bold: true, textAlign: 'center', display: 'block' } }, 'Избранные остановки (' + this.state.favorites.length + ')'),
+          Text({ style: { marginBottom: '8px', fontSize: '20px', bold: true, textAlign: 'center', display: 'block' } }, 'Избранные (' + this.state.favorites.length + ')'),
           this.state.favorites.length > 0
             ? favoritesUI
             : Text(
