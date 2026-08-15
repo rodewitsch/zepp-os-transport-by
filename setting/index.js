@@ -58,6 +58,7 @@ AppSettingsPage({
     searching: false,
     initialized: false,
     currentView: 'stops',
+    pendingDelete: null,
     darkMode: true,
     refreshInterval: 30,
   },
@@ -67,6 +68,7 @@ AppSettingsPage({
       this.state.initialized = true
       props.settingsStorage.setItem('searchResults', JSON.stringify([]))
       props.settingsStorage.setItem('searching', 'false')
+      props.settingsStorage.setItem('pendingDelete', '')
     }
     this.loadStorage(props)
 
@@ -274,9 +276,10 @@ AppSettingsPage({
                 boxShadow: 'none',
               },
               onClick: () => {
-                const favs = this.state.favorites.slice()
-                favs.splice(idx, 1)
-                settingsStorage.setItem('favorites', JSON.stringify(favs))
+                settingsStorage.setItem('pendingDelete', JSON.stringify({
+                  stopId: String(fav.StopId || ''),
+                  name: fav.StopName || 'Неизвестная остановка',
+                }))
               },
             }),
           ]),
@@ -429,6 +432,89 @@ AppSettingsPage({
               'Нет избранных остановок. Используйте поиск выше.'
             )]
       ),
+
+      // Confirmation modal for deleting a favorite stop
+      this.state.pendingDelete
+        ? View({
+          style: {
+            position: 'fixed',
+            top: '0',
+            left: '0',
+            right: '0',
+            bottom: '0',
+            background: 'rgba(0, 0, 0, 0.55)',
+            zIndex: '999',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
+        }, [
+          View({
+            style: {
+              background: THEME.surface,
+              border: '1px solid ' + THEME.border,
+              borderRadius: '12px',
+              padding: '20px',
+              margin: '24px',
+              width: '100%',
+              maxWidth: '300px',
+            },
+          }, [
+            Text(
+              { bold: true, style: { fontSize: '16px', color: THEME.text, marginBottom: '8px', display: 'block' } },
+              'Удалить остановку?'
+            ),
+            Text(
+              { style: { fontSize: '13px', color: THEME.textSec, marginBottom: '16px', display: 'block' } },
+              '«' + this.state.pendingDelete.name + '» будет удалена из избранных.'
+            ),
+            View({
+              style: {
+                display: 'flex',
+                flexDirection: 'row',
+                justifyContent: 'flex-end',
+                gap: '8px',
+              },
+            }, [
+              Button({
+                label: 'Отмена',
+                style: {
+                  background: THEME.btnBg,
+                  color: THEME.btnText,
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  padding: '6px 14px',
+                  boxShadow: 'none',
+                },
+                onClick: () => {
+                  settingsStorage.setItem('pendingDelete', '')
+                },
+              }),
+              Button({
+                label: 'Удалить',
+                style: {
+                  background: '#f44336',
+                  color: '#fff',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  padding: '6px 14px',
+                  boxShadow: 'none',
+                },
+                onClick: () => {
+                  const stopId = String((this.state.pendingDelete && this.state.pendingDelete.stopId) || '')
+                  const favs = this.state.favorites.slice()
+                  const deleteIdx = favs.findIndex((f) => String(f.StopId) === stopId)
+                  if (deleteIdx !== -1) {
+                    favs.splice(deleteIdx, 1)
+                    settingsStorage.setItem('favorites', JSON.stringify(favs))
+                  }
+                  settingsStorage.setItem('pendingDelete', '')
+                },
+              }),
+            ]),
+          ]),
+        ])
+        : undefined,
     ])
   },
 
@@ -440,6 +526,13 @@ AppSettingsPage({
       this.state.favorites = f ? JSON.parse(f) : []
     } catch (e) {
       this.state.favorites = []
+    }
+
+    try {
+      const pd = s.getItem('pendingDelete')
+      this.state.pendingDelete = pd ? JSON.parse(pd) : null
+    } catch (e) {
+      this.state.pendingDelete = null
     }
 
     try {
