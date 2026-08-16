@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.5.0](https://github.com/rodewitsch/zepp-os-transport-by/compare/v1.4.0...v1.5.0) (2026-08-16)
+
+
+### Features
+
+* confirm favorite stop deletion in settings ([3b8ea6a](https://github.com/rodewitsch/zepp-os-transport-by/commit/3b8ea6a8a0079f07c40f1abba9ef511f8e3205ce))
+
 ## [1.4.0](https://github.com/rodewitsch/zepp-os-transport-by/compare/v1.3.0...v1.4.0) (2026-08-14)
 
 
