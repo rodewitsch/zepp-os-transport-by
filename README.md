@@ -10,12 +10,14 @@ the official passenger transport app for the Republic of Belarus.
 - **Round screen support** – safe-area calculations for circular watch bezels
 - **Favourite stops** – save bus/tram/trolleybus/metro stops on the watch
 - **Live arrivals** – see upcoming vehicles with minutes-until-arrival, colour-coded by transport type
-- **Auto-refresh** – arrivals update every 30 seconds automatically
+- **Auto-refresh** – arrivals update automatically at a configurable interval (15 s, 30 s, 1 min, 2 min or 5 min; default 30 s)
 - **Bright screen** – screen stays on and palm/drop-wrist sleep is disabled while viewing arrivals
 - **Stop search** – search stops by name on the watch using the on-device keyboard, or in the Zepp phone app Settings UI
-- **Swipe to delete** – swipe a stop card left on the home screen to reveal a red delete button
+- **Swipe to delete** – swipe a stop card left on the home screen to reveal a red 🗑 delete area
 - **Route summaries** – when searching, each stop shows its available routes with destination names (e.g. `91→Веснинка`)
 - **Favourites sync** – favourites added/removed on the watch are synced to the phone Settings UI and vice versa
+- **Phone settings** – dark/light theme toggle and refresh-interval selection in the Zepp app Settings UI
+- **Favourites management on phone** – reorder stops with ▲/▼, colour-coded route badges, expandable route details (ⓘ) and a delete confirmation dialog
 - **Offline safe** – graceful error messages when offline or API unavailable
 
 ## Supported devices
@@ -33,7 +35,7 @@ the official passenger transport app for the Republic of Belarus.
 
 ```
 zepp-os-transport-by-app/
-├── app.json                 ← Multi-target Mini Program configuration (Bip 6 & Balance 2)
+├── app.json                 ← Multi-target Mini Program configuration (6 device targets)
 ├── app.js                   ← App lifecycle & global data
 ├── package.json
 ├── jsconfig.json
@@ -43,10 +45,10 @@ zepp-os-transport-by-app/
 │   └── index.js             ← Companion service (runs on phone; all HTTP requests made here)
 ├── page/
 │   ├── home/index.js        ← Favourite stops list (entry point); swipe-to-delete cards, favourites sync
-│   ├── arrivals/index.js    ← Live arrival board for a selected stop; auto-refreshes every 30 s
+│   ├── arrivals/index.js    ← Live arrival board for a selected stop; auto-refresh at configured interval
 │   └── add-stop/index.js    ← Search & add a new favourite stop from the watch (on-device keyboard)
 ├── setting/
-│   └── index.js             ← Zepp Settings App UI (runs on phone); stop search, route summaries, favourites management
+│   └── index.js             ← Zepp Settings App UI (runs on phone); stop search, favourites management (reorder, route details, delete confirmation), theme & refresh-interval settings
 ├── utils/
 │   ├── constants.js         ← Device-aware layout constants (screen size, safe zones, colours, fonts)
 │   ├── spinner.js           ← Animated arc spinner widget for loading states
@@ -90,6 +92,8 @@ Zepp OS device does not have direct internet access; it communicates with the ph
 Stop search in the Settings App is driven by a `settingsStorage` listener in `app-side/index.js`
 instead of a direct message request, which avoids blocking the settings UI. Favourites are
 bidirectionally synced between the device (`LocalStorage`) and phone (`settingsStorage`).
+Theme (`darkMode`) and refresh-interval (`refreshInterval`) preferences also live in
+`settingsStorage` and are picked up by the device app via `GET_FAVORITES`.
 
 ## API endpoints used
 
@@ -112,7 +116,7 @@ All requests use `POST` against the **transport-by.app** internal API:
 |--------|--------|---------|
 | `GET_ARRIVALS` | `{ stopId, lang }` | `{ stopId, arrivals: [{ route, minutes, direction, type }] }` |
 | `SEARCH_STOPS` | `{ query, lang }` | `{ stops: Stop[] }` |
-| `GET_FAVORITES` | — | `{ favorites: Stop[] }` |
+| `GET_FAVORITES` | — | `{ favorites: Stop[], refreshInterval: number }` |
 | `SAVE_FAVORITES` | `{ favorites: Stop[] }` | `{ ok: true }` |
 
 ## Transport type colours
@@ -129,23 +133,23 @@ All requests use `POST` against the **transport-by.app** internal API:
 
 ### `app-side/index.js` – Companion service
 
-- **`searchStops(query, lang)`** – searches stops via `POST /api/Search`, then enriches each result with route data via `POST /api/GetStopRouts` (excluding minibuses). Builds a compact `RoutesSummary` string per stop.
+- **`searchStops(query, lang)`** – searches stops via `POST /api/Search`, then enriches each result with route data via `POST /api/GetStopRouts` (excluding minibuses). Builds a compact `RoutesSummary` list per stop.
 - **`getArrivals(stopId, lang)`** – fetches live arrivals via `POST /api/GetScoreboard`, normalises the response (handles both JSON and NDJSON formats).
 - **`normalizeArrivals(raw, stopId)`** – normalises quote characters, sorts by minutes, filters out minibuses and arrivals > 60 min.
-- Settings Storage listener – intercepts `searchRequest` key changes from the Settings App and writes results back to `searchResults`.
+- Settings Storage listener – intercepts `searchRequest` and `routeSummaryRequest` key changes from the Settings App and writes results back to `searchResults` / `favorites`.
 
 ### `page/home/index.js` – Home (favourite stops)
 
 - Renders a scrollable list of favourite stop cards with route-type colour badges.
-- Swipe-to-delete: swiping a card left reveals a red delete button. Tapping background resets all revealed cards.
-- Empty state with app icon when no favourites exist; an "Add stop" button is always visible.
-- On `build()`, syncs favourites from the phone (`GET_FAVORITES`) and merges with local storage.
+- Swipe-to-delete: swiping a card left reveals a red 🗑 delete area. Tapping the background resets all revealed cards.
+- Empty state with app icon when no favourites exist; a **+ добавить** button is always visible.
+- On `build()`, syncs favourites and the refresh interval from the phone (`GET_FAVORITES`) and merges with local storage, then pushes local state back (`SAVE_FAVORITES`).
 
 ### `page/arrivals/index.js` – Arrivals board
 
 - Displays live arrivals for a selected stop: route number, direction, and minutes until arrival.
 - Colour-coded by transport type (bus/trolleybus/tram/metro).
-- Auto-refreshes every 30 seconds with a timestamp footer.
+- Auto-refreshes at the configured interval (default 30 s, set in phone Settings) with an `Обновлено` timestamp footer.
 - Keeps the screen on (1 hour bright time + disables palm/drop-wrist sleep).
 
 ### `page/add-stop/index.js` – Add stop (watch)
@@ -156,9 +160,10 @@ All requests use `POST` against the **transport-by.app** internal API:
 
 ### `setting/index.js` – Settings App (phone)
 
-- Full search UI with text input, debounced search via `settingsStorage`.
-- Displays search results with stop name, address, and route summaries.
-- Add/remove favourites with +/✕ buttons. Already-added stops show "★ Добавлено".
+- Search UI with text input; search runs automatically from 2 characters via `settingsStorage`.
+- Displays search results with stop name, address, and route summaries; add with **+**, clear with **✕**. Already-added stops show ✓.
+- Favourites list: colour-coded route badges, ⓘ expandable route details, ▲/▼ reordering and **✕** removal with a confirmation dialog.
+- ⚙ settings view: dark/light theme toggle and refresh-interval selector (15 s – 5 min).
 
 ### `utils/constants.js` – Layout & design tokens
 
@@ -197,7 +202,7 @@ and deploying. Version bumps follow [standard-version](https://github.com/conven
 - [Node.js](https://nodejs.org/) ≥ 16
 - [Zeus CLI](https://docs.zepp.com/docs/guides/quick-start/environment/)
   (`npm install -g @zeppos/zeus-cli`)
-- Zepp app on your phone, paired with your Amazfit Bip 6
+- Zepp app on your phone, paired with a supported Amazfit device (see table above)
 - Developer Mode enabled on the watch
 
 ### Install & run
@@ -220,36 +225,32 @@ The signed `.zab` file appears in `dist/`. Transfer it via the Zepp app.
 
 ### On the watch
 
-1. Open **Transport BY** from the app list.
-2. Tap **+ Add stop** to search for a stop directly from the watch.
-3. Tap a saved stop to see live arrivals (auto-refreshes every 30 s).
-4. Swipe a stop card left and tap **✕** to remove it.
+1. Open **Остановка** from the app list.
+2. Tap **+ добавить** to search for a stop directly from the watch.
+3. Tap a saved stop to see live arrivals (auto-refresh at the configured interval).
+4. Swipe a stop card left and tap the 🗑 area to remove it.
 
 ### In the Zepp phone app (Settings)
 
-1. Open the Zepp app → Mini Programs → Transport BY → Settings.
-2. Type a stop name in the search field (≥ 2 characters triggers search).
+1. Open the Zepp app → Mini Programs → Остановка → Settings.
+2. Type a stop name in the search field (search runs automatically from 2 characters).
 3. Tap **+** on a result to save it as a favourite; tap **✕** to clear the search.
-4. Saved favourites appear below and can be removed with **✕**.
-6. Tap `X` on a saved stop from the home screen to remove it quickly.
-7. Tap **↻ Refresh** to reload.
-8. Tap 🗑 in the arrivals header to remove a stop from favourites.
+4. Manage favourites below: reorder with ▲/▼, tap ⓘ to expand route details, remove with **✕** (a confirmation dialog appears).
+5. Tap **⚙** to open settings: toggle dark theme and choose the refresh interval (15 s, 30 s, 1 min, 2 min, 5 min).
 
 ## Customisation
 
 | File | What to change |
 |------|----------------|
-| `utils/constants.js` | `API_BASE`, colours, screen sizes |
-| `app-side/index.js` | HTTP request logic, response normalisation |
+| `app-side/index.js` | `API_BASE`, HTTP request logic, response normalisation |
+| `utils/constants.js` | colours, screen sizes, safe-area offsets |
 | `app.json` | `appId` (need a real Zepp developer ID for publishing) |
 
-## Supported devices
+## Adding more devices
 
-| Device | deviceSource |
-|--------|-------------|
-| Amazfit Bip 6 | 9765120, 9765121, 10158337 |
-
-To add more devices, extend the `platforms` array and `targets` object in `app.json`.
+Device targets are defined under `targets` in `app.json`. To add a device, extend its
+`platforms` array (deviceSource IDs) and create a target with the correct `designWidth`.
+See the supported-devices table above for the current targets.
 
 ## License
 
