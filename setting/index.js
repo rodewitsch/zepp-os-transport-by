@@ -59,7 +59,7 @@ AppSettingsPage({
     initialized: false,
     currentView: 'stops',
     pendingDelete: null,
-    darkMode: true,
+    darkMode: false,
     refreshInterval: 30,
   },
 
@@ -552,7 +552,8 @@ AppSettingsPage({
     }
 
     const dm = s.getItem('darkMode')
-    this.state.darkMode = dm === null ? true : dm === 'true'
+    // Light theme is the default; only switch to dark when explicitly set
+    this.state.darkMode = dm === null ? false : dm === 'true'
 
     const ri = s.getItem('refreshInterval')
     this.state.refreshInterval = ri ? parseInt(ri, 10) || 30 : 30
