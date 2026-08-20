@@ -27,7 +27,8 @@ import {
   IS_ROUND,
 } from '../../utils/constants'
 import { createSpinner } from '../../utils/spinner'
-import { loadRefreshInterval } from '../../utils/storage'
+import { loadRefreshInterval, loadArrivalsCache, saveArrivalsCache } from '../../utils/storage'
+import { screenView, track } from '../../utils/analytics'
 
 const logger = Logger.getLogger('arrivals')
 
@@ -104,6 +105,12 @@ Page(
       spinner: null,
       /** @type {any[]} */
       contentWidgets: [],
+      /** @type {any[]} Row widget refs for in-place updates */
+      rows: [],
+      /** @type {string | null} Snapshot of last rendered arrivals */
+      lastSnapshot: null,
+      /** @type {number} Timestamp of last cache write (throttle storage writes) */
+      lastCacheSave: 0,
     },
 
     onInit(paramsStr) {
@@ -131,13 +138,37 @@ Page(
       } catch (/** @type {any} */ e) {
         logger.log('Failed to parse params:', e)
       }
+
+      if (this.state.stop) {
+        screenView('arrivals', {
+          stop_id: String(this.state.stop.StopId || ''),
+          stop_name: this.state.stop.StopName || '',
+        })
+      }
     },
 
     build() {
       hmUI.setStatusBarVisible(false);
 
       if (this.state.stop) {
-        this.fetchArrivals(false)
+        // Instant first paint from a fresh snapshot (≤60s), then silent refresh
+        const cached = loadArrivalsCache(String(this.state.stop.StopId || ''), 60000)
+        if (cached && cached.arrivals.length > 0) {
+          this.state.arrivals = cached.arrivals
+          this.state.lastUpdated = new Date(cached.updatedAt)
+          this.state.loading = false
+          this.state.error = null
+          this.state.lastSnapshot = 'OK|' + this.arrivalsSnapshot()
+          this.renderContent()
+          track('arrivals_viewed', {
+            stop_id: String(this.state.stop.StopId || ''),
+            stop_name: this.state.stop.StopName || '',
+            arrivals_count: this.state.arrivals.length,
+          })
+          this.fetchArrivals(true)
+        } else {
+          this.fetchArrivals(false)
+        }
         this.startAutoRefresh()
       } else {
         this.state.error = 'No stop selected'
@@ -156,7 +187,17 @@ Page(
       return w
     },
 
+    deleteRowWidgets(row) {
+      try { hmUI.deleteWidget(row.bg) } catch (e) { }
+      try { hmUI.deleteWidget(row.badgeRect) } catch (e) { }
+      try { hmUI.deleteWidget(row.routeText) } catch (e) { }
+      try { hmUI.deleteWidget(row.dirText) } catch (e) { }
+      try { hmUI.deleteWidget(row.minText) } catch (e) { }
+    },
+
     clearContentWidgets() {
+      this.state.rows.forEach(r => this.deleteRowWidgets(r))
+      this.state.rows = []
       this.state.contentWidgets.forEach(w => {
         try { hmUI.deleteWidget(w) } catch (e) { }
       })
@@ -300,6 +341,13 @@ Page(
       const arrivals = this.state.arrivals;
       const count = arrivals.length
 
+      // Fast path: same number of rows → update widgets in place instead of
+      // tearing down and rebuilding the whole list (no flicker, no churn).
+      if (this.state.rows.length === count) {
+        this.state.rows.forEach((row, i) => this.updateArrivalRow(row, arrivals[i]))
+        return
+      }
+
       // Available height for the scroll container (leave bottom padding for round screens)
       const availH = SCREEN_H - startY - BOTTOM_PAD
       // Total height of all rows plus extra bottom spacing so the last row can scroll
@@ -318,8 +366,7 @@ Page(
 
       arrivals.forEach((arrival, i) => {
         const rowY = i * (ROW_H + ROW_GAP)
-        logger.log('Rendering arrival:', arrival)
-        this.renderArrivalRow(arrival, rowY, scrollContainer)
+        this.state.rows.push(this.renderArrivalRow(arrival, rowY, scrollContainer))
       });
     },
 
@@ -333,9 +380,17 @@ Page(
       const cw = (type, props) => parent.createWidget(type, props)
 
       const routeColor = getRouteColor(arrival.type)
+      const direction = arrival.direction || 'via this stop'
+      const minText = arrival.minutes < 1 ? 'Now' : `${arrival.minutes} min`
+      const minColor =
+        arrival.minutes < 1
+          ? COLOR_PRIMARY
+          : arrival.minutes <= 2
+            ? COLOR_WARNING
+            : COLOR_TEXT
 
       // Row background
-      cw(hmUI.widget.FILL_RECT, {
+      const bg = cw(hmUI.widget.FILL_RECT, {
         x: MARGIN,
         y: rowY,
         w: CONTENT_W,
@@ -346,7 +401,7 @@ Page(
 
       // Route number badge
       const badgeW = 60
-      cw(hmUI.widget.FILL_RECT, {
+      const badgeRect = cw(hmUI.widget.FILL_RECT, {
         x: MARGIN + 8,
         y: rowY + (ROW_H - 36) / 2,
         w: badgeW,
@@ -355,7 +410,7 @@ Page(
         radius: 6,
       })
 
-      cw(hmUI.widget.TEXT, {
+      const routeText = cw(hmUI.widget.TEXT, {
         x: MARGIN + 8,
         y: rowY + (ROW_H - 36) / 2,
         w: badgeW,
@@ -368,12 +423,12 @@ Page(
       })
 
       // Direction text
-      cw(hmUI.widget.TEXT, {
+      const dirText = cw(hmUI.widget.TEXT, {
         x: MARGIN + 8 + badgeW + 8,
         y: rowY,
         w: CONTENT_W - badgeW - 80,
         h: ROW_H,
-        text: arrival.direction || 'via this stop',
+        text: direction,
         text_size: FONT_SIZE_SMALL,
         color: COLOR_TEXT,
         align_h: hmUI.align.LEFT,
@@ -382,19 +437,7 @@ Page(
       })
 
       // Minutes remaining
-      const minText =
-        arrival.minutes < 1
-          ? 'Now'
-          : `${arrival.minutes} min`
-
-      const minColor =
-        arrival.minutes < 1
-          ? COLOR_PRIMARY
-          : arrival.minutes <= 2
-            ? COLOR_WARNING
-            : COLOR_TEXT
-
-      cw(hmUI.widget.TEXT, {
+      const minTextW = cw(hmUI.widget.TEXT, {
         x: MARGIN + CONTENT_W - 70,
         y: rowY,
         w: 66,
@@ -405,6 +448,12 @@ Page(
         align_h: hmUI.align.CENTER_H,
         align_v: hmUI.align.CENTER_V,
       })
+
+      // Keep refs + rendered values so refreshes can patch widgets in place
+      return {
+        bg, badgeRect, routeText, dirText, minText: minTextW,
+        route: arrival.route, direction, minutes: arrival.minutes, type: arrival.type,
+      }
     },
 
     renderLastUpdated() {
@@ -421,11 +470,50 @@ Page(
       }
     },
 
+    /**
+     * Patch a single row's widgets in place. Only touches widgets whose
+     * values actually changed — minimal native setProperty calls.
+     * @param {any} row
+     * @param {any} arrival
+     */
+    updateArrivalRow(row, arrival) {
+      if (!row || !arrival) return
+
+      const direction = arrival.direction || 'via this stop'
+      const minText = arrival.minutes < 1 ? 'Now' : `${arrival.minutes} min`
+      const minColor =
+        arrival.minutes < 1
+          ? COLOR_PRIMARY
+          : arrival.minutes <= 2
+            ? COLOR_WARNING
+            : COLOR_TEXT
+
+      if (row.type !== arrival.type) {
+        row.badgeRect.setProperty(hmUI.prop.MORE, { color: getRouteColor(arrival.type) })
+        row.type = arrival.type
+      }
+      if (row.route !== arrival.route) {
+        row.routeText.setProperty(hmUI.prop.MORE, { text: arrival.route })
+        row.route = arrival.route
+      }
+      if (row.direction !== direction) {
+        row.dirText.setProperty(hmUI.prop.MORE, { text: direction })
+        row.direction = direction
+      }
+      if (row.minutes !== arrival.minutes) {
+        row.minText.setProperty(hmUI.prop.MORE, { text: minText, color: minColor })
+        row.minutes = arrival.minutes
+      }
+    },
+
+    /** @returns {string} Compact snapshot of current arrivals for change detection */
+    arrivalsSnapshot() {
+      return this.state.arrivals.map(a => `${a.route}|${a.minutes}|${a.direction}|${a.type}`).join(';')
+    },
+
     fetchArrivals(silent = false) {
       const stop = this.state.stop;
       if (!stop) return;
-
-      logger.log('Fetching arrivals for stop:', JSON.stringify(stop))
 
       const stopId = String(stop.StopId)
 
@@ -483,9 +571,43 @@ Page(
             this.state.error = null
           }
 
+          // Track only the initial (non-silent) load; auto-refresh is silent
+          if (!silent) {
+            track('arrivals_viewed', {
+              stop_id: stopId,
+              stop_name: this.state.stopName || (stop.StopName || ''),
+              arrivals_count: this.state.arrivals.length,
+            })
+          }
+
           this.state.lastUpdated = new Date()
-          logger.log('Start rendering')
-          this.renderContent();
+
+          // Skip the full re-render when nothing changed — just refresh the
+          // timestamp. This makes silent auto-refresh nearly free.
+          const snap = (this.state.error ? 'ERR:' + this.state.error : 'OK') + '|' + this.arrivalsSnapshot()
+          if (snap === this.state.lastSnapshot) {
+            this.renderLastUpdated()
+            return
+          }
+          this.state.lastSnapshot = snap
+
+          // Persist a fresh snapshot so the next visit opens instantly.
+          // Throttled to at most one write per 20s to protect flash storage.
+          if (!this.state.error && this.state.arrivals.length > 0) {
+            const nowMs = Date.now()
+            if (!this.state.lastCacheSave || nowMs - this.state.lastCacheSave > 20000) {
+              this.state.lastCacheSave = nowMs
+              saveArrivalsCache(stopId, this.state.arrivals, nowMs)
+            }
+          }
+
+          // In-place patch when rows are already rendered with the same
+          // count — no teardown/rebuild, no flicker.
+          if (!this.state.error && this.state.rows.length > 0 && this.state.rows.length === this.state.arrivals.length) {
+            this.renderArrivalsRows()
+          } else {
+            this.renderContent()
+          }
         })
         .catch((err) => {
           logger.log('Arrivals error:', err)

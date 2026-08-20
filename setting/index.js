@@ -61,6 +61,7 @@ AppSettingsPage({
     pendingDelete: null,
     darkMode: false,
     refreshInterval: 30,
+    analyticsEnabled: true,
   },
 
   build(props) {
@@ -558,6 +559,10 @@ AppSettingsPage({
     const ri = s.getItem('refreshInterval')
     this.state.refreshInterval = ri ? parseInt(ri, 10) || 30 : 30
 
+    const ae = s.getItem('analyticsEnabled')
+    // Analytics is enabled by default; disabled only when explicitly turned off
+    this.state.analyticsEnabled = ae === null ? true : ae === 'true'
+
     this.state.currentView = s.getItem('currentView') || 'stops'
   },
 
@@ -611,6 +616,26 @@ AppSettingsPage({
             settingsStorage.setItem('darkMode', this.state.darkMode ? 'true' : 'false')
           },
         }, [Text({ style: { color: isDark ? '#fff' : '#000', fontSize: '14px' } }, isDark ? 'Выкл' : 'Вкл')]),
+      ]),
+
+      // Analytics (Google Analytics) opt-out
+      View({
+        style: { display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid ' + THEME.border },
+      }, [
+        View({ style: { display: 'flex', flexDirection: 'column', flex: 1, marginRight: '12px' } }, [
+          Text({ style: { color: THEME.text, fontSize: '15px' } }, 'Анонимная статистика'),
+          Text(
+            { style: { color: isDark ? '#999' : '#777', fontSize: '11px', marginTop: '4px' } },
+            'Обезличенные данные об использовании (устройство, язык, регион, частота открытий) отправляются в Google Analytics. Личные данные не передаются.'
+          ),
+        ]),
+        View({
+          style: { background: this.state.analyticsEnabled ? THEME.accent : THEME.btnBg, borderRadius: '20px', padding: '6px 16px', cursor: 'pointer' },
+          onClick: () => {
+            this.state.analyticsEnabled = !this.state.analyticsEnabled
+            settingsStorage.setItem('analyticsEnabled', this.state.analyticsEnabled ? 'true' : 'false')
+          },
+        }, [Text({ style: { color: this.state.analyticsEnabled ? '#fff' : '#000', fontSize: '14px' } }, this.state.analyticsEnabled ? 'Выкл' : 'Вкл')]),
       ]),
 
       // Refresh interval

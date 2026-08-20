@@ -23,7 +23,8 @@ import {
   FONT_SIZE_TINY,
   getSafeBottomDims,
 } from '../../utils/constants'
-import { loadFavorites, saveFavorites, removeFavorite, saveRefreshInterval } from '../../utils/storage'
+import { loadFavorites, saveFavorites, removeFavorite, saveRefreshInterval, saveAnalyticsEnabled, saveArrivalsCache } from '../../utils/storage'
+import { initAnalytics, screenView, track, refreshAnalyticsEnabled } from '../../utils/analytics'
 
 const logger = Logger.getLogger('home')
 const vibrator = new Vibrator()
@@ -57,14 +58,26 @@ Page(
       resets: [],
     },
     build() {
+      // Analytics: first_open / session_start on every app launch
+      initAnalytics()
+      screenView('home')
+
       this.state.favorites = loadFavorites()
       this.renderPage()
+
+      // Preload arrivals for the top favorites in the background so the
+      // arrivals page opens instantly when one of them is tapped.
+      setTimeout(() => this.preloadArrivals(), 300)
 
       // Sync favorites from Settings App (settingsStorage → device LocalStorage)
       this.request({ method: 'GET_FAVORITES', params: {} })
         .then((data) => {
           if (data && data.refreshInterval) {
             saveRefreshInterval(data.refreshInterval)
+          }
+          if (data && typeof data.analyticsEnabled === 'boolean') {
+            saveAnalyticsEnabled(data.analyticsEnabled)
+            refreshAnalyticsEnabled()
           }
           const remoteFavs = /** @type {import('../../utils/storage').Stop[]} */ (data && data.favorites ? data.favorites : [])
           if (remoteFavs.length > 0) {
@@ -156,6 +169,30 @@ Page(
         this.renderAddButton(0, true)
       } else {
         this.renderFavoritesList(favorites)
+      }
+    },
+
+    /**
+     * Fetch arrivals for the top favorites in the background and cache
+     * them on the watch, so opening the arrivals page is instant.
+     */
+    preloadArrivals() {
+      const favorites = this.state.favorites
+      const count = Math.min(3, favorites.length)
+      for (let i = 0; i < count; i++) {
+        const stop = favorites[i]
+        const stopId = String(stop.StopId || '')
+        if (!stopId) continue
+        this.request({
+          method: 'GET_ARRIVALS',
+          params: { stopId, lang: 'ru' },
+        })
+          .then((data) => {
+            if (data && !data.error && Array.isArray(data.arrivals) && data.arrivals.length > 0) {
+              saveArrivalsCache(stopId, data.arrivals, Date.now())
+            }
+          })
+          .catch(() => { })
       }
     },
 
@@ -259,6 +296,10 @@ Page(
         })
       const removeStop = () => {
         this.state.favorites = removeFavorite(index)
+        track('stop_removed', {
+          stop_id: String(stop.StopId || ''),
+          stop_name: stop.StopName || '',
+        })
         this.request({
           method: 'SAVE_FAVORITES',
           params: { favorites: this.state.favorites },
@@ -414,8 +455,13 @@ Page(
         badgeX += badgeW + badgeGap
       }
 
+      // MOVE events fire faster than the UI can repaint. Skip redundant
+      // setProperty calls when the offset hasn't changed.
+      let lastAppliedOffset = null
       /** @param {number} offset */
       const applyOffset = (offset) => {
+        if (offset === lastAppliedOffset) return
+        lastAppliedOffset = offset
         const newX = MARGIN + offset
         cardBg.setProperty(hmUI.prop.MORE, { x: newX, y: cardY, w: CONTENT_W, h: CARD_H })
         navGroup.setProperty(hmUI.prop.MORE, { x: newX, y: cardY, w: CONTENT_W, h: CARD_H })

@@ -18,6 +18,106 @@ import { BaseSideService } from '@zeppos/zml/base-side'
 const API_BASE = 'https://transport-by.app/api'
 const DEFAULT_LANG = 'ru'
 
+// ── Performance helpers ──
+// App-side service runs while the phone is connected, so in-memory
+// caches here absorb duplicate/back-to-back requests from the watch.
+const REQUEST_TIMEOUT_MS = 15000
+const ARRIVALS_TTL_MS = 10000 // scoreboard data is fresh enough for ~10s
+const SEARCH_TTL_MS = 30000 // repeated identical searches hit the cache
+const ROUTE_FETCH_LIMIT = 10 // fetch route details only for first N hits
+const ROUTE_CONCURRENCY = 4 // parallel GetStopRouts requests
+
+/** @type {Map<string, { ts: number, data: any }>} */
+const arrivalsCache = new Map()
+/** @type {Map<string, { ts: number, stops: any[] }>} */
+const searchCache = new Map()
+/** @type {Map<string, { items: any[], parts: string[] }>} */
+const routesCache = new Map()
+
+/**
+ * Race a promise against a timeout. The underlying request keeps running
+ * in the background, but the caller fails fast instead of hanging.
+ * @template T
+ * @param {Promise<T>} promise
+ * @param {number} ms
+ * @returns {Promise<T>}
+ */
+function withTimeout(promise, ms) {
+  let timer = null
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Request timed out after ${ms}ms`)), ms)
+  })
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
+}
+
+/**
+ * Compact a stop for the bridge: strip full route objects down to the
+ * few fields the watch/Settings UI actually need. Cuts payload size a lot.
+ * @param {any} stop
+ * @returns {any}
+ */
+function compactStopForBridge(stop) {
+  if (!stop) return stop
+  const out = Object.assign({}, stop)
+  if (Array.isArray(stop.Routes)) {
+    const seen = new Set()
+    const routes = []
+    for (const item of stop.Routes) {
+      const r = item && item.result ? item.result : item
+      if (!r || !r.Number || r.Type === 3) continue
+      const num = String(r.Number)
+      if (seen.has(num)) continue
+      seen.add(num)
+      routes.push({
+        Number: r.Number,
+        Type: r.Type != null ? r.Type : 0,
+        FinishStopName: r.FinishStopName || '',
+      })
+    }
+    out.Routes = routes
+  }
+  return out
+}
+
+/**
+ * Fetch and compact routes for a stop. Cached forever in memory —
+ * route sets change rarely, and this avoids refetching on every search.
+ * @param {string} stopId
+ * @returns {Promise<{ items: any[], parts: string[] }>}
+ */
+async function getStopRoutesCached(stopId) {
+  const sid = String(stopId)
+  const hit = routesCache.get(sid)
+  if (hit) return hit
+
+  const routesRaw = await postWithFallback(`${API_BASE}/GetStopRouts`, {
+    StopId: sid,
+    Types: [0, 1, 2, 4],
+  })
+
+  const allItems = Array.isArray(routesRaw) ? routesRaw : []
+  const seen = new Set()
+  const items = []
+  const parts = []
+  for (const item of allItems) {
+    const r = item.result || item
+    if (!r || !r.Number || r.Type === 3) continue
+    const num = String(r.Number)
+    if (seen.has(num)) continue
+    seen.add(num)
+    items.push({
+      Number: r.Number,
+      Type: r.Type != null ? r.Type : 0,
+      FinishStopName: r.FinishStopName || '',
+    })
+    if (r.FinishStopName) parts.push(r.Number + '→' + r.FinishStopName)
+  }
+
+  const entry = { items, parts }
+  routesCache.set(sid, entry)
+  return entry
+}
+
 function isJSON(data) {
   try {
     JSON.parse(data);
@@ -59,7 +159,7 @@ async function fetchJson(url, options = {}) {
     req.body = options.body
   }
 
-  const response = await fetch(req)
+  const response = await withTimeout(fetch(req), REQUEST_TIMEOUT_MS)
   const status = response.status || response.statusCode || 200
 
   // Read body only once; device runtimes can fail on multiple reads.
@@ -110,8 +210,16 @@ async function postWithFallback(url, payload) {
 
 /**
  * Search for bus stops by name or address.
+ * Route details are fetched in parallel (bounded concurrency) and only
+ * for the first ROUTE_FETCH_LIMIT hits — the old sequential version took
+ * seconds per result.
  */
 async function searchStops(query, lang) {
+  const cacheKey = `${lang || DEFAULT_LANG}:${query}`
+  const cached = searchCache.get(cacheKey)
+  const now = Date.now()
+  if (cached && now - cached.ts < SEARCH_TTL_MS) return cached.stops
+
   const response = await postWithFallback(`${API_BASE}/Search`, {
     Text: query,
     BoundaryCircle: {
@@ -122,54 +230,57 @@ async function searchStops(query, lang) {
     AdditionalParams: `layers=venue,address&lang=${lang || DEFAULT_LANG}`,
   })
 
-  const stops = response != null && typeof response === 'object' ? response.Stops : null
-  const processedStops = Array.isArray(stops) ? stops : [];
+  const stopsRaw = response != null && typeof response === 'object' ? response.Stops : null
+  const processedStops = Array.isArray(stopsRaw) ? stopsRaw : [];
 
+  // Default empty route data (keeps bridge payload small for long results)
   for (const stop of processedStops) {
-    try {
-      const routesRaw = await postWithFallback(`${API_BASE}/GetStopRouts`, {
-        StopId: String(stop.StopId),
-        Types: [0, 1, 2, 4],
-      });
-
-      const allItems = Array.isArray(routesRaw) ? routesRaw : []
-      const items = allItems.filter((item) => {
-        const r = item.result || item
-        return r.Type !== 3
-      })
-      // Build a compact summary: "91→Веснинка  100→Минск-Южный"
-      const seen = new Set()
-      const parts = []
-      for (const item of items) {
-        const r = item.result || item
-        if (r.Number && r.FinishStopName && !seen.has(r.Number)) {
-          seen.add(r.Number)
-          parts.push(r.Number + '→' + r.FinishStopName)
-        }
-      }
-      stop.RoutesSummary = parts
-      stop.Routes = items
-    } catch (e) {
-      console.log('GetStopRouts failed for', stop.StopId, e)
-      stop.RoutesSummary = []
-      stop.Routes = []
-    }
+    stop.RoutesSummary = []
+    stop.Routes = []
   }
 
+  // Fetch route details for the top hits only, in parallel
+  const targets = processedStops.slice(0, ROUTE_FETCH_LIMIT)
+  let cursor = 0
+  const workerCount = Math.min(ROUTE_CONCURRENCY, targets.length)
+  const workers = Array.from({ length: workerCount }, async () => {
+    while (cursor < targets.length) {
+      const stop = targets[cursor++]
+      try {
+        const { items, parts } = await getStopRoutesCached(String(stop.StopId))
+        stop.RoutesSummary = parts
+        stop.Routes = items
+      } catch (e) {
+        console.log('GetStopRouts failed for', stop.StopId, e)
+        stop.RoutesSummary = []
+        stop.Routes = []
+      }
+    }
+  })
+  await Promise.all(workers)
+
+  searchCache.set(cacheKey, { ts: Date.now(), stops: processedStops })
   return processedStops;
 }
 
 /**
  * Get arrival predictions for a specific stop.
+ * Short TTL cache absorbs duplicate refresh bursts from the watch.
  */
 async function getArrivals(stopId, lang) {
-  console.log(`Fetching arrivals for stopId=${stopId}, lang=${lang}`)
+  const sid = String(stopId)
+  const cached = arrivalsCache.get(sid)
+  const now = Date.now()
+  if (cached && now - cached.ts < ARRIVALS_TTL_MS) return cached.data
+
   const newBody = await postWithFallback(`${API_BASE}/GetScoreboard`, {
-    StopId: String(stopId),
+    StopId: sid,
     Types: [0, 1, 2, 4],
   })
 
-  return normalizeArrivals(newBody, stopId);
+  const data = normalizeArrivals(newBody, sid)
+  arrivalsCache.set(sid, { ts: Date.now(), data })
+  return data;
 }
 
 /**
@@ -238,24 +349,7 @@ AppSideService(
         if (key === 'routeSummaryRequest' && newValue) {
           try {
             const { stopId, favIndex } = JSON.parse(newValue)
-            const routesRaw = await postWithFallback(`${API_BASE}/GetStopRouts`, {
-              StopId: String(stopId),
-              Types: [0, 1, 2, 4],
-            })
-            const allItems = Array.isArray(routesRaw) ? routesRaw : []
-            const items = allItems.filter((item) => {
-              const r = item.result || item
-              return r.Type !== 3
-            })
-            const seen = new Set()
-            const parts = []
-            for (const item of items) {
-              const r = item.result || item
-              if (r.Number && r.FinishStopName && !seen.has(r.Number)) {
-                seen.add(r.Number)
-                parts.push(r.Number + '→' + r.FinishStopName)
-              }
-            }
+            const { parts } = await getStopRoutesCached(String(stopId))
 
             // Update the favorite's RoutesSummary and re-save
             const raw = settings.settingsStorage.getItem('favorites')
@@ -294,9 +388,11 @@ AppSideService(
           // Return favorites from settingsStorage (set by Settings App)
           try {
             const raw = settings.settingsStorage.getItem('favorites')
-            const favorites = raw ? JSON.parse(raw) : []
+            const favorites = (raw ? JSON.parse(raw) : []).map(compactStopForBridge)
             const refreshInterval = parseInt(settings.settingsStorage.getItem('refreshInterval') || '30', 10) || 30
-            res(null, { favorites, refreshInterval })
+            const aeRaw = settings.settingsStorage.getItem('analyticsEnabled')
+            const analyticsEnabled = aeRaw === null ? true : aeRaw === 'true'
+            res(null, { favorites, refreshInterval, analyticsEnabled })
           } catch (e) {
             res(null, { favorites: [], refreshInterval: 30 })
           }

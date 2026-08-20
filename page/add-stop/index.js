@@ -22,6 +22,7 @@ import {
 } from '../../utils/constants'
 import { addFavorite, loadFavorites } from '../../utils/storage'
 import { createSpinner } from '../../utils/spinner'
+import { screenView, track } from '../../utils/analytics'
 
 const logger = Logger.getLogger('add-stop')
 
@@ -45,6 +46,7 @@ Page(
     },
 
     build() {
+      screenView('add_stop')
       this.renderPage()
     },
 
@@ -199,6 +201,10 @@ Page(
 
       const addStop = () => {
         addFavorite(stop)
+        track('stop_added', {
+          stop_id: String(stop.StopId || ''),
+          stop_name: stop.StopName || '',
+        })
         // Sync to settingsStorage so Settings App sees the change
         this.request({
           method: 'SAVE_FAVORITES',
@@ -317,6 +323,12 @@ Page(
               this.state.error = 'Остановки не найдены'
             }
           }
+
+          track('search', {
+            search_term: query,
+            city: this.state.selectedCity,
+            results_count: this.state.results.length,
+          })
 
           this.renderPage()
         })
