@@ -4,6 +4,10 @@
 // Sends anonymized usage events from the device app to the
 // GA4 property "Bus Stop" (G-B72992K91T).
 //
+// The watch side has no network access on real devices, so payloads
+// are relayed through the app-side service (method SEND_ANALYTICS),
+// which POSTs them to the GA4 Measurement Protocol endpoint.
+//
 // Events are batched (debounced) and sent best-effort:
 // network failures are silently ignored — analytics must
 // never break the app.
@@ -40,6 +44,18 @@ let sessionStarted = false
 let queue = []
 let flushTimer = null
 let flushing = false
+let bridgeRequest = null
+
+/**
+ * Inject the device → app-side bridge (the page's `this.request`).
+ * Must be called once from a page before analytics init, e.g. from
+ * the home page build():
+ *   setAnalyticsBridge((method, params) => this.request({ method, params }))
+ * @param {(method: string, params: any) => Promise<any>} requestFn
+ */
+export function setAnalyticsBridge(requestFn) {
+  if (typeof requestFn === 'function') bridgeRequest = requestFn
+}
 
 /**
  * Stable pseudo-random client id, persisted in LocalStorage.
@@ -195,8 +211,12 @@ export function screenView(screenName, params) {
 
 /**
  * Initialize analytics for the current app process:
- * fires `first_open` once per install and `session_start`
+ * fires `app_first_open` once per install and `app_launch`
  * on every app launch. Safe to call multiple times.
+ *
+ * NOTE: GA4 rejects `first_open` / `session_start` via Measurement
+ * Protocol (NAME_RESERVED), so custom event names are used; GA4 still
+ * derives sessions and the first_open metric automatically.
  */
 export function initAnalytics() {
   try {
@@ -217,13 +237,13 @@ export function initAnalytics() {
   const appVersion = (getDeviceContext().app_version || '').toString()
 
   if (isFirstOpen) {
-    track('first_open', { app_version: appVersion })
+    track('app_first_open', { app_version: appVersion })
     try {
       storage.setItem(FIRST_OPEN_STORAGE_KEY, '1')
     } catch (_e) { }
   }
 
-  track('session_start', { app_version: appVersion })
+  track('app_launch', { app_version: appVersion })
 
   // First events are the most valuable — send them right away.
   flush()
@@ -266,6 +286,17 @@ export function flush() {
  * @returns {Promise<any>}
  */
 function send(payload) {
+  // Primary transport: relay through the app-side service, which does the
+  // HTTP POST. The watch side itself has no network access on real devices.
+  if (bridgeRequest) {
+    try {
+      const result = bridgeRequest('SEND_ANALYTICS', { payload })
+      if (result && typeof result.catch === 'function') result.catch(() => {})
+      return Promise.resolve()
+    } catch (_e) { }
+  }
+
+  // Fallback (simulator without a side service): direct device-side fetch.
   let fetcher = null
   try {
     if (typeof fetch === 'function') {

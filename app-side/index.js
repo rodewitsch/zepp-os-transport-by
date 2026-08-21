@@ -18,6 +18,32 @@ import { BaseSideService } from '@zeppos/zml/base-side'
 const API_BASE = 'https://transport-by.app/api'
 const DEFAULT_LANG = 'ru'
 
+// ── Google Analytics 4 (Measurement Protocol) ──
+// The device app has no network access on real watches, so analytics
+// payloads built on the watch are relayed here and POSTed to GA4.
+const GA_MEASUREMENT_ID = 'G-B72992K91T'
+const GA_API_SECRET = 'zbK1rzJtTye8LN8m_PtQ7Q'
+const GA_COLLECT_URL =
+  'https://www.google-analytics.com/mp/collect' +
+  '?measurement_id=' + encodeURIComponent(GA_MEASUREMENT_ID) +
+  '&api_secret=' + encodeURIComponent(GA_API_SECRET)
+
+/**
+ * Fire-and-forget POST of a GA4 Measurement Protocol payload.
+ * Best-effort: analytics must never break the app.
+ * @param {any} payload
+ */
+function sendAnalytics(payload) {
+  try {
+    fetch({
+      url: GA_COLLECT_URL,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).catch(() => {})
+  } catch (_e) { }
+}
+
 // ── Performance helpers ──
 // App-side service runs while the phone is connected, so in-memory
 // caches here absorb duplicate/back-to-back requests from the watch.
@@ -401,6 +427,14 @@ AppSideService(
           // Device → settingsStorage sync (so Settings App sees device changes)
           const { favorites } = req.params || {}
           settings.settingsStorage.setItem('favorites', JSON.stringify(favorites || []))
+          res(null, { ok: true })
+
+        } else if (req.method === 'SEND_ANALYTICS') {
+          // Device → GA4: the watch builds the payload, the side service POSTs it.
+          const { payload } = req.params || {}
+          if (payload && Array.isArray(payload.events) && payload.events.length > 0) {
+            sendAnalytics(payload)
+          }
           res(null, { ok: true })
 
         } else {

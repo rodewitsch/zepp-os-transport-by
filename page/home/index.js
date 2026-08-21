@@ -24,7 +24,7 @@ import {
   getSafeBottomDims,
 } from '../../utils/constants'
 import { loadFavorites, saveFavorites, removeFavorite, saveRefreshInterval, saveAnalyticsEnabled, saveArrivalsCache } from '../../utils/storage'
-import { initAnalytics, screenView, track, refreshAnalyticsEnabled } from '../../utils/analytics'
+import { initAnalytics, screenView, track, refreshAnalyticsEnabled, setAnalyticsBridge } from '../../utils/analytics'
 
 const logger = Logger.getLogger('home')
 const vibrator = new Vibrator()
@@ -58,7 +58,9 @@ Page(
       resets: [],
     },
     build() {
-      // Analytics: first_open / session_start on every app launch
+      // Analytics: route events through the app-side service — the watch
+      // side has no network access on real devices.
+      setAnalyticsBridge((method, params) => this.request({ method, params }))
       initAnalytics()
       screenView('home')
 
