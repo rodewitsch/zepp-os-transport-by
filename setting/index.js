@@ -1,3 +1,6 @@
+// Donation link (opens in the Zepp app's built-in browser)
+const DONATE_URL = 'https://boosty.to/rodevich/donate'
+
 // Route type → badge color (mirrors watch face)
 const ROUTE_TYPE_COLORS = {
   0: '#00c853', // bus – green
@@ -405,6 +408,28 @@ AppSettingsPage({
               settingsStorage.setItem('currentView', 'settings')
             },
           }),
+          // Donate button — opens the donation link
+          Link(
+            { source: DONATE_URL },
+            [
+              View({
+                style: {
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '8px',
+                  background: THEME.btnBg,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                },
+              }, [
+                Text({
+                  style: { color: THEME.btnText, fontSize: '14px' },
+                }, '$'),
+              ]),
+            ],
+          ),
         ]),
         this.state.searching
           ? Text(

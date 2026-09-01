@@ -8,6 +8,7 @@ import {
   MARGIN,
   CONTENT_W,
   HEADER_TOP,
+  BOTTOM_PAD,
   COLOR_BG,
   COLOR_PRIMARY,
   COLOR_ACCENT,
@@ -26,6 +27,11 @@ import { screenView, track } from '../../utils/analytics'
 
 const logger = Logger.getLogger('add-stop')
 
+// Donation: QR content + popup layout
+const DONATE_URL = 'https://boosty.to/rodevich/donate?qr=true'
+const DONATE_BTN_SIZE = 56
+const QR_SIZE = IS_ROUND ? 240 : 250
+
 // Layout
 const INPUT_H = 52
 const ROUTE_LINE_H = 18
@@ -43,6 +49,10 @@ Page(
       selectedCity: 'minsk',
       /** @type {{ stop: () => void } | null} */
       spinner: null,
+      /** @type {boolean} Whether the donate QR overlay is open */
+      showDonate: false,
+      /** @type {any[]} Widgets of the donate overlay */
+      donateWidgets: [],
     },
 
     build() {
@@ -69,6 +79,165 @@ Page(
 
       this.renderSearchSection()
       this.renderResults()
+
+      // Floating donate button (hidden while the QR overlay is open)
+      if (!this.state.showDonate) {
+        this.renderDonateButton()
+      }
+    },
+
+    renderDonateButton() {
+      const size = DONATE_BTN_SIZE
+      // Safe inset on round screens (bottom content gets clipped by bezel)
+      const pad = IS_ROUND ? 28 : 0
+      const x = SCREEN_W - size - MARGIN - pad
+      const y = SCREEN_H - size - BOTTOM_PAD - pad
+
+      hmUI.createWidget(hmUI.widget.BUTTON, {
+        x,
+        y,
+        w: size,
+        h: size,
+        normal_color: COLOR_PRIMARY,
+        press_color: 0x00a884,
+        text: '$',
+        color: COLOR_BG,
+        text_size: FONT_SIZE_BODY,
+        radius: size / 2,
+        click_func: () => this.showDonate(),
+      })
+    },
+
+    showDonate() {
+      if (this.state.showDonate) return
+      this.state.showDonate = true
+
+      this.renderDonateOverlay()
+      track('donate_qr_open')
+    },
+
+    hideDonate() {
+      if (!this.state.showDonate) return
+      this.state.showDonate = false
+      this.state.donateWidgets.forEach((w) => {
+        try {
+          hmUI.deleteWidget(w)
+        } catch (_e) { }
+      })
+      this.state.donateWidgets = []
+      this.renderDonateButton()
+    },
+
+    renderDonateOverlay() {
+      const widgets = this.state.donateWidgets
+      const add = (type, props) => {
+        const w = hmUI.createWidget(type, props)
+        widgets.push(w)
+        return w
+      }
+
+      const close = () => this.hideDonate()
+
+      // Dim background — tapping it dismisses the overlay
+      add(hmUI.widget.FILL_RECT, {
+        x: 0,
+        y: 0,
+        w: SCREEN_W,
+        h: SCREEN_H,
+        color: 0x000000,
+        alpha: 200,
+        click_func: close,
+      })
+
+      // Card
+      // Title + gaps + QR + hint are stacked vertically with comfortable spacing.
+      const TITLE_H = 26
+      const TITLE_TOP = 16
+      const GAP_AFTER_TITLE = 22
+      const QR_BG_INSET = 18
+      const GAP_AFTER_QR = 20
+      const HINT_H = 24
+
+      const qrBgSize = QR_SIZE + QR_BG_INSET * 2
+      const cardW = QR_SIZE + 88
+      const cardH = TITLE_TOP + TITLE_H + GAP_AFTER_TITLE + qrBgSize + GAP_AFTER_QR + HINT_H + 20
+      const cardX = (SCREEN_W - cardW) / 2
+      const cardY = Math.max(HEADER_TOP, (SCREEN_H - cardH) / 2)
+      add(hmUI.widget.FILL_RECT, {
+        x: cardX,
+        y: cardY,
+        w: cardW,
+        h: cardH,
+        color: COLOR_CARD_BG,
+        radius: 12,
+      })
+
+      // Title
+      add(hmUI.widget.TEXT, {
+        x: cardX,
+        y: cardY + TITLE_TOP,
+        w: cardW,
+        h: TITLE_H,
+        text: 'Поддержите проект',
+        text_size: FONT_SIZE_SMALL,
+        color: COLOR_TEXT,
+        align_h: hmUI.align.CENTER_H,
+        align_v: hmUI.align.CENTER_V,
+        text_style: hmUI.text_style.ELLIPSIS,
+      })
+
+      // QR code with white background (needed for reliable scanning)
+      const qrX = cardX + (cardW - QR_SIZE) / 2
+      const qrY = cardY + TITLE_TOP + TITLE_H + GAP_AFTER_TITLE + QR_BG_INSET
+      add(hmUI.widget.FILL_RECT, {
+        x: qrX - QR_BG_INSET,
+        y: qrY - QR_BG_INSET,
+        w: qrBgSize,
+        h: qrBgSize,
+        color: 0xffffff,
+        radius: 8,
+      })
+      add(hmUI.widget.QRCODE, {
+        x: qrX,
+        y: qrY,
+        w: QR_SIZE,
+        h: QR_SIZE,
+        bg_x: qrX - QR_BG_INSET,
+        bg_y: qrY - QR_BG_INSET,
+        bg_w: qrBgSize,
+        bg_h: qrBgSize,
+        content: DONATE_URL,
+      })
+
+      // Hint — placed just below the QR code (after its white background)
+      add(hmUI.widget.TEXT, {
+        x: cardX,
+        y: qrY + QR_SIZE + GAP_AFTER_QR,
+        w: cardW,
+        h: HINT_H,
+        text: 'Отсканируйте QR-код',
+        text_size: FONT_SIZE_TINY,
+        color: COLOR_TEXT_DIM,
+        align_h: hmUI.align.CENTER_H,
+        align_v: hmUI.align.CENTER_V,
+        text_style: hmUI.text_style.ELLIPSIS,
+      })
+
+      // Close button (plain Latin X — the ✕ glyph is missing from the watch font
+      // and would render as a tofu box)
+      add(hmUI.widget.BUTTON, {
+        x: cardX + cardW - 44,
+        y: cardY + 8,
+        w: 36,
+        h: 36,
+        normal_color: 0x2a2a2a,
+        press_color: 0x3a3a3a,
+        text: 'X',
+        text_size: FONT_SIZE_SMALL,
+        color: COLOR_TEXT_DIM,
+        radius: 18,
+        click_func: close,
+      })
     },
 
     renderSearchSection() {
