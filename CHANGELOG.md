@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.6.0](https://github.com/rodewitsch/zepp-os-transport-by/compare/v1.5.0...v1.6.0) (2026-09-01)
+
+
+### Features
+
+* add donate button with QR code and phone settings link ([f9f40aa](https://github.com/rodewitsch/zepp-os-transport-by/commit/f9f40aa387eeb8f3f1ee265f0db9d04118872f91))
+* make light theme default in settings page ([3ba4a4d](https://github.com/rodewitsch/zepp-os-transport-by/commit/3ba4a4d8cc8d8cedebe933226631fad1327bbd47))
+
+
+### Bug Fixes
+
+* **analytics:** route GA4 events through app-side ([a5bf024](https://github.com/rodewitsch/zepp-os-transport-by/commit/a5bf024ad6aeff33b51514ef2a810b182eaf484c))
+
 ## [1.5.0](https://github.com/rodewitsch/zepp-os-transport-by/compare/v1.4.0...v1.5.0) (2026-08-16)
 
 
