@@ -255,3 +255,12 @@ See the supported-devices table above for the current targets.
 ## License
 
 MIT – feel free to fork and adapt.
+
+<p align="center">
+I’ll be glad to have your support. Every donation goes towards developing the projects and maintaining the infrastructure 💙
+</p>
+<p align="center">
+  <a href="https://boosty.to/rodevich/donate">
+    <img src="https://github.com/user-attachments/assets/a15bd2c0-ed6b-4140-9480-dfb70a0b5f1a" alt="Donate">
+  </a>
+</p>
