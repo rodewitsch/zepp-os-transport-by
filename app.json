@@ -2,7 +2,7 @@
   "configVersion": "v3",
   "app": {
     "appId": 1110452,
-    "appName": "Остановка",
+    "appName": "Bus Stop BY",
     "appType": "app",
     "version": {
       "code": 2,
@@ -232,7 +232,10 @@
   },
   "i18n": {
     "ru-RU": {
-      "appName": "Остановка"
+      "appName": "Остановка BY"
+    },
+    "en-US": {
+      "appName": "Bus Stop BY"
     }
   },
   "defaultLanguage": "en-US"
