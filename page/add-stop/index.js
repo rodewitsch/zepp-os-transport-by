@@ -22,8 +22,8 @@ import {
   IS_ROUND,
 } from '../../utils/constants'
 import { addFavorite, loadFavorites } from '../../utils/storage'
-import { createSpinner } from '../../utils/spinner'
 import { screenView, track } from '../../utils/analytics'
+import { minHoldMs } from '../../utils/timing'
 
 const logger = Logger.getLogger('add-stop')
 
@@ -295,21 +295,15 @@ Page(
         click_func: openKeyboard,
       })
 
-      // Status / searching indicator
+      // Status / searching indicator — caption only (no image)
       if (this.state.searching) {
-        const centerY = Math.floor(SCREEN_H / 2)
-        if (this.state.spinner && this.state.spinner.stop) this.state.spinner.stop()
-        this.state.spinner = createSpinner(
-          SCREEN_W / 2, centerY - 20,
-          16, 3, COLOR_TEXT
-        )
         hmUI.createWidget(hmUI.widget.TEXT, {
           x: MARGIN,
-          y: centerY + 6,
+          y: Math.floor((SCREEN_H - FONT_SIZE_BODY) / 2),
           w: CONTENT_W,
-          h: 24,
-          text: 'Подключение к transport-by.app',
-          text_size: FONT_SIZE_SMALL,
+          h: FONT_SIZE_BODY + 4,
+          text: 'Загрузка',
+          text_size: FONT_SIZE_BODY,
           color: COLOR_TEXT_DIM,
           align_h: hmUI.align.CENTER_H,
           align_v: hmUI.align.CENTER_V,
@@ -470,6 +464,9 @@ Page(
       this.state.error = null
       this.state.results = []
       this.renderPage()
+      // Remember when the "Загрузка" state appeared so we keep it visible for
+      // at least MIN_LOAD_MS even when the search completes instantly.
+      const searchingShownAt = Date.now()
 
       this.request({
         method: 'SEARCH_STOPS',
@@ -479,7 +476,9 @@ Page(
           lang: 'ru',
         },
       })
-        .then((data) => {
+        .then(async (data) => {
+          // Hold the "Загрузка" screen for at least MIN_LOAD_MS.
+          await minHoldMs(searchingShownAt)
           logger.log('Search results:', JSON.stringify(data))
           this.state.searching = false
 
@@ -501,7 +500,8 @@ Page(
 
           this.renderPage()
         })
-        .catch((err) => {
+        .catch(async (err) => {
+          await minHoldMs(searchingShownAt)
           logger.log('Search error:', err)
           this.state.searching = false
           this.state.error = err && err.message ? err.message : 'Подключение не удалось. Попробуйте снова.' // 'Connection failed. Try again.'

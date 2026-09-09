@@ -25,6 +25,7 @@ import {
 } from '../../utils/constants'
 import { loadFavorites, saveFavorites, removeFavorite, saveRefreshInterval, saveAnalyticsEnabled, saveArrivalsCache } from '../../utils/storage'
 import { initAnalytics, screenView, track, refreshAnalyticsEnabled, setAnalyticsBridge } from '../../utils/analytics'
+import { deferRender } from '../../utils/preloader'
 
 const logger = Logger.getLogger('home')
 const vibrator = new Vibrator()
@@ -56,6 +57,8 @@ Page(
       widgets: [],
       /** @type {Array<() => void>} */
       resets: [],
+      /** @type {{ cancel: () => void, finished: boolean } | null} */
+      preloader: null,
     },
     build() {
       // Analytics: route events through the app-side service — the watch
@@ -65,7 +68,21 @@ Page(
       screenView('home')
 
       this.state.favorites = loadFavorites()
-      this.renderPage()
+
+      // The favourites list is the heaviest thing this page builds (a dozen+
+      // widgets per card). Creating it inside `build()` competes with the
+      // ~300 ms push/launch transition animation and causes visible stutter, so
+      // we cover the transition with a lightweight preloader and build the list
+      // once the animation has settled. The empty state is cheap — render it now.
+      hmUI.setStatusBarVisible(false)
+      if (this.state.favorites.length > 0) {
+        this.state.preloader = deferRender(() => {
+          this.state.preloader = null
+          this.renderPage()
+        })
+      } else {
+        this.renderPage()
+      }
 
       // Preload arrivals for the top favorites in the background so the
       // arrivals page opens instantly when one of them is tapped.
@@ -581,6 +598,15 @@ Page(
         radius: 28,
         click_func: () => push({ url: 'page/add-stop/index' })
       })
+    },
+
+    onDestroy() {
+      // A fast back-navigation can destroy the page before the deferred render
+      // fires — cancel it so we never build widgets on a destroyed page.
+      if (this.state.preloader) {
+        this.state.preloader.cancel()
+        this.state.preloader = null
+      }
     },
   })
 )

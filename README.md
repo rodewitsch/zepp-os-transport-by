@@ -51,8 +51,9 @@ zepp-os-transport-by-app/
 │   └── index.js             ← Zepp Settings App UI (runs on phone); stop search, favourites management (reorder, route details, delete confirmation), theme & refresh-interval settings
 ├── utils/
 │   ├── constants.js         ← Device-aware layout constants (screen size, safe zones, colours, fonts)
-│   ├── spinner.js           ← Animated arc spinner widget for loading states
-│   └── storage.js           ← LocalStorage helpers for favourites & settings
+│   ├── preloader.js         ← Deferred-render gate: black full-screen loading state shown during page transitions
+│   ├── storage.js           ← LocalStorage helpers for favourites & settings
+│   └── timing.js            ← minHoldMs(): keep loading states visible a minimum time
 ├── assets/
 │   ├── bip6/                ← Bip 6 device assets (icons, images)
 │   ├── balance2/            ← Balance 2 device assets (icons, images)
@@ -171,10 +172,18 @@ All requests use `POST` against the **transport-by.app** internal API:
 - Colour palette, font sizes, and spacing constants.
 - Storage key names.
 
-### `utils/spinner.js` – Animated spinner
+### `utils/preloader.js` – Black full-screen loading state (smooth transitions)
 
-- Creates an arc-based spinning indicator using `hmUI.widget.ARC` rotating with `setInterval`.
-- Exposes a `stop()` method to clean up the timer and widget.
+- `deferRender(render, options?)` paints a plain black full-screen loading state (just the centered word «Загрузка» — no icon, no animation) so Zepp OS's ~300 ms page-transition animation has almost nothing to composite, then runs `render` once the animation has settled. Building the full widget tree inside `build()` runs on the same JS/UI thread as the animation and is what makes heavy screens (favourites list, cached arrivals board) stutter on entry. Images/animated spinners for loading were tried but removed — a plain dark screen renders most reliably.
+- The real content is created after the preloader, so it lands on top; the preloader is torn down in the same synchronous tick, batching the swap into a single repaint (no flash).
+- Returns a handle with `cancel()` — call it from the page's `onDestroy` so a fast back-navigation never fires `render` on a destroyed page.
+- `TRANSITION_MS` (default `350`) is the wait before rendering; raise it if content still pops in mid-animation on slower devices.
+- Used by `page/home` (favourites list) and `page/arrivals` (cache-hit first paint).
+- `page/arrivals` and `page/add-stop` also show a plain centered «Загрузка» while their network request is in flight.
+
+### `utils/timing.js` – Keep loading visible a minimum time
+
+- `minHoldMs(startedAtMs, minMs = MIN_LOAD_MS)` returns a promise that resolves only after `MIN_LOAD_MS` (default `600`) has elapsed since the loading screen appeared. If the request already took longer, it resolves immediately. Used by `page/arrivals` (non-silent fetch) and `page/add-stop` (search) so a fast response can't make the «Загрузка» indicator flash for a few ms.
 
 ## Development
 

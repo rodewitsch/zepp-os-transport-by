@@ -26,9 +26,10 @@ import {
   FONT_SIZE_TINY,
   IS_ROUND,
 } from '../../utils/constants'
-import { createSpinner } from '../../utils/spinner'
+import { deferRender } from '../../utils/preloader'
 import { loadRefreshInterval, loadArrivalsCache, saveArrivalsCache } from '../../utils/storage'
 import { screenView, track } from '../../utils/analytics'
+import { minHoldMs } from '../../utils/timing'
 
 const logger = Logger.getLogger('arrivals')
 
@@ -111,6 +112,8 @@ Page(
       lastSnapshot: null,
       /** @type {number} Timestamp of last cache write (throttle storage writes) */
       lastCacheSave: 0,
+      /** @type {{ cancel: () => void, finished: boolean } | null} */
+      preloader: null,
     },
 
     onInit(paramsStr) {
@@ -159,11 +162,18 @@ Page(
           this.state.loading = false
           this.state.error = null
           this.state.lastSnapshot = 'OK|' + this.arrivalsSnapshot()
-          this.renderContent()
-          track('arrivals_viewed', {
-            stop_id: String(this.state.stop.StopId || ''),
-            stop_name: this.state.stop.StopName || '',
-            arrivals_count: this.state.arrivals.length,
+          // Painting the whole board inside `build()` fights the ~300 ms push
+          // animation and stutters, so cover the transition with a preloader and
+          // render the cached rows once it settles. The silent refresh still
+          // kicks off immediately so fresh data is already in flight.
+          this.state.preloader = deferRender(() => {
+            this.state.preloader = null
+            this.renderContent()
+            track('arrivals_viewed', {
+              stop_id: String(this.state.stop.StopId || ''),
+              stop_name: this.state.stop.StopName || '',
+              arrivals_count: this.state.arrivals.length,
+            })
           })
           this.fetchArrivals(true)
         } else {
@@ -258,19 +268,15 @@ Page(
 
     renderLoading() {
       if (this.state.spinner) this.state.spinner.stop()
-      const centerY = Math.floor(SCREEN_H / 2)
-      this.state.spinner = createSpinner(
-        SCREEN_W / 2, centerY - 20,
-        16, 3, COLOR_TEXT
-      )
-
+      // Caption only (no image) while the request is in flight.
+      const labelY = Math.floor((SCREEN_H - FONT_SIZE_BODY) / 2)
       this.addWidget(hmUI.widget.TEXT, {
         x: MARGIN,
-        y: centerY + 6,
+        y: labelY,
         w: CONTENT_W,
-        h: 24,
-        text: 'Подключение к transport-by.app',
-        text_size: FONT_SIZE_SMALL,
+        h: FONT_SIZE_BODY + 4,
+        text: 'Загрузка',
+        text_size: FONT_SIZE_BODY,
         color: COLOR_TEXT_DIM,
         align_h: hmUI.align.CENTER_H,
         align_v: hmUI.align.CENTER_V,
@@ -533,6 +539,9 @@ Page(
 
       this.state.loading = !silent
       this.state.error = null
+      // Remember when a visible loading screen appeared so we can enforce a
+      // minimum display time (MIN_LOAD_MS) and avoid a brief flash.
+      const loadingShownAt = silent ? 0 : Date.now()
       if (!silent) {
         this.renderContent()
       } else {
@@ -559,7 +568,10 @@ Page(
       }
 
       requestPromise
-        .then((data) => {
+        .then(async (data) => {
+          // Keep the loading screen visible for at least MIN_LOAD_MS even if the
+          // response arrived quickly (only for a waiting, non-silent load).
+          if (!silent) await minHoldMs(loadingShownAt)
           this.state.loading = false
 
           if (data.error) {
@@ -609,8 +621,9 @@ Page(
             this.renderContent()
           }
         })
-        .catch((err) => {
+        .catch(async (err) => {
           logger.log('Arrivals error:', err)
+          if (!silent) await minHoldMs(loadingShownAt)
           this.state.loading = false
           this.state.error = 'Подключение не удалось. Попробуйте снова.' // 'Connection failed. Try again.'
           this.state.arrivals = []
@@ -621,6 +634,10 @@ Page(
 
     onDestroy() {
       this.stopAutoRefresh()
+      if (this.state.preloader) {
+        this.state.preloader.cancel()
+        this.state.preloader = null
+      }
       if (this.state.spinner) this.state.spinner.stop()
 
       try {
