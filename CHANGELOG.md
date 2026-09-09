@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.7.0](https://github.com/rodewitsch/zepp-os-transport-by/compare/v1.6.0...v1.7.0) (2026-09-09)
+
+
+### Features
+
+* replace animated spinner with plain black loading screen ([e4168c0](https://github.com/rodewitsch/zepp-os-transport-by/commit/e4168c05f110eebb56e858309e42bfd94c485b0c))
+
 ## [1.6.0](https://github.com/rodewitsch/zepp-os-transport-by/compare/v1.5.0...v1.6.0) (2026-09-01)
 
 
