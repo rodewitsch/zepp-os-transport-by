@@ -23,7 +23,8 @@ import {
   FONT_SIZE_TINY,
   getSafeBottomDims,
 } from '../../utils/constants'
-import { loadFavorites, saveFavorites, removeFavorite, saveRefreshInterval, saveAnalyticsEnabled, saveArrivalsCache } from '../../utils/storage'
+import { loadFavorites, saveFavorites, removeFavorite, saveRefreshInterval, saveAnalyticsEnabled, saveArrivalsCache, loadTransportTypes, saveTransportTypes } from '../../utils/storage'
+import { filterRouteItems, normalizeTransportTypes } from '../../utils/transport-types'
 import { initAnalytics, screenView, track, refreshAnalyticsEnabled, setAnalyticsBridge } from '../../utils/analytics'
 import { deferRender } from '../../utils/preloader'
 
@@ -59,6 +60,8 @@ Page(
       resets: [],
       /** @type {{ cancel: () => void, finished: boolean } | null} */
       preloader: null,
+      /** @type {number[]} Transport types to show (set in the phone settings) */
+      transportTypes: [],
     },
     build() {
       // Analytics: route events through the app-side service — the watch
@@ -68,6 +71,7 @@ Page(
       screenView('home')
 
       this.state.favorites = loadFavorites()
+      this.state.transportTypes = loadTransportTypes()
 
       // The favourites list is the heaviest thing this page builds (a dozen+
       // widgets per card). Creating it inside `build()` competes with the
@@ -98,6 +102,19 @@ Page(
             saveAnalyticsEnabled(data.analyticsEnabled)
             refreshAnalyticsEnabled()
           }
+
+          // Transport types chosen on the phone — may change while the app runs
+          let typesChanged = false
+          if (data && Array.isArray(data.transportTypes)) {
+            const next = normalizeTransportTypes(data.transportTypes)
+            const current = this.state.transportTypes || []
+            typesChanged = next.length !== current.length || next.some((t, i) => t !== current[i])
+            if (typesChanged) {
+              saveTransportTypes(next)
+              this.state.transportTypes = next
+            }
+          }
+
           const remoteFavs = /** @type {import('../../utils/storage').Stop[]} */ (data && data.favorites ? data.favorites : [])
           if (remoteFavs.length > 0) {
             const localFavs = loadFavorites()
@@ -113,7 +130,19 @@ Page(
               if (!rid) return
               const localMatch = localFavs.find(lf => String(lf.StopId || '') === rid)
               if (localMatch) {
-                merged.push(localMatch)
+                // Routes refreshed on the phone (for example after another
+                // transport type was enabled) are richer than the stored ones.
+                const remoteRoutes = Array.isArray(rf.Routes) ? rf.Routes : []
+                const localRoutes = Array.isArray(localMatch.Routes) ? localMatch.Routes : []
+                if (remoteRoutes.length > localRoutes.length) {
+                  merged.push(Object.assign({}, localMatch, {
+                    Routes: remoteRoutes,
+                    RoutesSummary: Array.isArray(rf.RoutesSummary) ? rf.RoutesSummary : localMatch.RoutesSummary,
+                  }))
+                  changed = true
+                } else {
+                  merged.push(localMatch)
+                }
               } else {
                 merged.push(rf)       // new stop added on phone
                 changed = true
@@ -137,7 +166,14 @@ Page(
               saveFavorites(merged)
               this.state.favorites = merged
               this.renderPage()
+            } else if (typesChanged && !this.state.preloader) {
+              this.renderPage()
             }
+          } else if (typesChanged && !this.state.preloader) {
+            // No favourites, but the visible type selection changed.
+            // While the preloader is pending it will render with the new
+            // types anyway, so don't fight the page transition.
+            this.renderPage()
           }
           // Push local favorites to settingsStorage so Settings App is in sync
           this.request({
@@ -328,19 +364,7 @@ Page(
 
       const stopName = stop.StopName || 'Неизвестная остановка'
       const address = stop.Address || ''
-      const routeItems = Array.isArray(stop.Routes) ? stop.Routes : []
-      const routes = []
-      const seen = new Set()
-      for (const item of routeItems) {
-        const r = item.result || item
-        const num = r.Number || ''
-        const type = r.Type != null ? r.Type : 0
-        if (num && !seen.has(num) && type !== 3) {
-          seen.add(num)
-          routes.push({ num, type })
-        }
-      }
-      const displayRoutes = routes.slice(0, 7)
+      const displayRoutes = filterRouteItems(stop.Routes, this.state.transportTypes).slice(0, 7)
 
       // null = undecided, 'h' = horizontal, 'v' = vertical
       /** @type {'h' | 'v' | null} */

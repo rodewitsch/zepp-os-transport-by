@@ -21,7 +21,8 @@ import {
   FONT_SIZE_TINY,
   IS_ROUND,
 } from '../../utils/constants'
-import { addFavorite, loadFavorites } from '../../utils/storage'
+import { addFavorite, loadFavorites, loadTransportTypes } from '../../utils/storage'
+import { isTransportTypeEnabled } from '../../utils/transport-types'
 import { screenView, track } from '../../utils/analytics'
 import { minHoldMs } from '../../utils/timing'
 
@@ -53,10 +54,13 @@ Page(
       showDonate: false,
       /** @type {any[]} Widgets of the donate overlay */
       donateWidgets: [],
+      /** @type {number[]} Transport types to show (set in the phone settings) */
+      transportTypes: [],
     },
 
     build() {
       screenView('add_stop')
+      this.state.transportTypes = loadTransportTypes()
       this.renderPage()
     },
 
@@ -341,14 +345,20 @@ Page(
      */
     getRouteLines(stop) {
       if (!stop.Routes || !Array.isArray(stop.Routes)) return []
+      const enabled = this.state.transportTypes && this.state.transportTypes.length
+        ? this.state.transportTypes
+        : loadTransportTypes()
       const seen = new Set()
       const lines = []
       for (const item of stop.Routes) {
         const r = item.result || item
-        if (r.Number && r.FinishStopName && !seen.has(r.Number) && r.Type !== 3) {
-          seen.add(r.Number)
-          lines.push(r.Number + ' → ' + r.FinishStopName)
-        }
+        if (!r || !r.Number || !r.FinishStopName) continue
+        const type = r.Type != null ? Number(r.Type) : 0
+        if (!isTransportTypeEnabled(type, enabled)) continue
+        const num = String(r.Number)
+        if (seen.has(num)) continue
+        seen.add(num)
+        lines.push(r.Number + ' → ' + r.FinishStopName)
       }
       return lines
     },

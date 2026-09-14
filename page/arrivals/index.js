@@ -27,7 +27,8 @@ import {
   IS_ROUND,
 } from '../../utils/constants'
 import { deferRender } from '../../utils/preloader'
-import { loadRefreshInterval, loadArrivalsCache, saveArrivalsCache } from '../../utils/storage'
+import { loadRefreshInterval, loadArrivalsCache, saveArrivalsCache, loadTransportTypes } from '../../utils/storage'
+import { isTransportTypeEnabled } from '../../utils/transport-types'
 import { screenView, track } from '../../utils/analytics'
 import { minHoldMs } from '../../utils/timing'
 
@@ -154,10 +155,12 @@ Page(
       hmUI.setStatusBarVisible(false);
 
       if (this.state.stop) {
-        // Instant first paint from a fresh snapshot (≤60s), then silent refresh
+        // Instant first paint from a fresh snapshot (≤60s), then silent refresh.
+        // A snapshot that only holds now-hidden transport types counts as empty.
         const cached = loadArrivalsCache(String(this.state.stop.StopId || ''), 60000)
-        if (cached && cached.arrivals.length > 0) {
-          this.state.arrivals = cached.arrivals
+        const cachedArrivals = cached ? this.applyTypeFilter(cached.arrivals) : []
+        if (cached && cachedArrivals.length > 0) {
+          this.state.arrivals = cachedArrivals
           this.state.lastUpdated = new Date(cached.updatedAt)
           this.state.loading = false
           this.state.error = null
@@ -184,6 +187,19 @@ Page(
         this.state.error = 'No stop selected'
         this.renderContent()
       }
+    },
+
+    /**
+     * Keep only arrivals whose transport type is enabled in the phone settings.
+     * Applied on read (cache and network) so toggling a type takes effect on
+     * the next paint without invalidating the snapshot cache.
+     * @param {any[]} list
+     * @returns {any[]}
+     */
+    applyTypeFilter(list) {
+      if (!Array.isArray(list)) return []
+      const enabled = loadTransportTypes()
+      return list.filter((a) => a && isTransportTypeEnabled(a.type, enabled))
     },
 
     /**
@@ -578,7 +594,7 @@ Page(
             this.state.error = data.error
             this.state.arrivals = []
           } else {
-            this.state.arrivals = data.arrivals || []
+            this.state.arrivals = this.applyTypeFilter(data.arrivals)
             this.state.stopName = stop.StopName || '';
             this.state.error = null
           }

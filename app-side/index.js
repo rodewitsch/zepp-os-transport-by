@@ -18,6 +18,31 @@ import { BaseSideService } from '@zeppos/zml/base-side'
 const API_BASE = 'https://transport-by.app/api'
 const DEFAULT_LANG = 'ru'
 
+// ── Transport types ──
+// Mirrors utils/transport-types.js: the side service is bundled separately
+// from device code, so the two lists are duplicated on purpose.
+const ALL_TRANSPORT_TYPES = [0, 1, 2, 3, 4]
+const DEFAULT_TRANSPORT_TYPES = [0, 1, 2, 4]
+
+/**
+ * Transport types the user enabled in the phone Settings App.
+ * Falls back to the historic default (everything but minibus) when unset.
+ * @returns {number[]}
+ */
+function readEnabledTransportTypes() {
+  try {
+    const raw = settings.settingsStorage.getItem('transportTypes')
+    if (!raw) return DEFAULT_TRANSPORT_TYPES.slice()
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+    if (!Array.isArray(parsed)) return DEFAULT_TRANSPORT_TYPES.slice()
+    const requested = parsed.map(Number)
+    const types = ALL_TRANSPORT_TYPES.filter((t) => requested.indexOf(t) !== -1)
+    return types.length > 0 ? types : DEFAULT_TRANSPORT_TYPES.slice()
+  } catch (_e) {
+    return DEFAULT_TRANSPORT_TYPES.slice()
+  }
+}
+
 // ── Google Analytics 4 (Measurement Protocol) ──
 // The device app has no network access on real watches, so analytics
 // payloads built on the watch are relayed here and POSTed to GA4.
@@ -57,7 +82,7 @@ const ROUTE_CONCURRENCY = 4 // parallel GetStopRouts requests
 const arrivalsCache = new Map()
 /** @type {Map<string, { ts: number, stops: any[] }>} */
 const searchCache = new Map()
-/** @type {Map<string, { items: any[], parts: string[] }>} */
+/** @type {Map<string, { items: any[] }>} */
 const routesCache = new Map()
 
 /**
@@ -90,7 +115,7 @@ function compactStopForBridge(stop) {
     const routes = []
     for (const item of stop.Routes) {
       const r = item && item.result ? item.result : item
-      if (!r || !r.Number || r.Type === 3) continue
+      if (!r || !r.Number) continue
       const num = String(r.Number)
       if (seen.has(num)) continue
       seen.add(num)
@@ -108,40 +133,51 @@ function compactStopForBridge(stop) {
 /**
  * Fetch and compact routes for a stop. Cached forever in memory —
  * route sets change rarely, and this avoids refetching on every search.
+ *
+ * All transport types are fetched and cached; the destination summary
+ * (`parts`) is derived per call from the types the user enabled, so
+ * changing the selection needs no cache invalidation.
  * @param {string} stopId
  * @returns {Promise<{ items: any[], parts: string[] }>}
  */
 async function getStopRoutesCached(stopId) {
   const sid = String(stopId)
-  const hit = routesCache.get(sid)
-  if (hit) return hit
+  let hit = routesCache.get(sid)
 
-  const routesRaw = await postWithFallback(`${API_BASE}/GetStopRouts`, {
-    StopId: sid,
-    Types: [0, 1, 2, 4],
-  })
-
-  const allItems = Array.isArray(routesRaw) ? routesRaw : []
-  const seen = new Set()
-  const items = []
-  const parts = []
-  for (const item of allItems) {
-    const r = item.result || item
-    if (!r || !r.Number || r.Type === 3) continue
-    const num = String(r.Number)
-    if (seen.has(num)) continue
-    seen.add(num)
-    items.push({
-      Number: r.Number,
-      Type: r.Type != null ? r.Type : 0,
-      FinishStopName: r.FinishStopName || '',
+  if (!hit) {
+    const routesRaw = await postWithFallback(`${API_BASE}/GetStopRouts`, {
+      StopId: sid,
+      Types: ALL_TRANSPORT_TYPES,
     })
+
+    const allItems = Array.isArray(routesRaw) ? routesRaw : []
+    const seen = new Set()
+    const items = []
+    for (const item of allItems) {
+      const r = item.result || item
+      if (!r || !r.Number) continue
+      const num = String(r.Number)
+      if (seen.has(num)) continue
+      seen.add(num)
+      items.push({
+        Number: r.Number,
+        Type: r.Type != null ? r.Type : 0,
+        FinishStopName: r.FinishStopName || '',
+      })
+    }
+
+    hit = { items }
+    routesCache.set(sid, hit)
+  }
+
+  const enabled = readEnabledTransportTypes()
+  const parts = []
+  for (const r of hit.items) {
+    if (enabled.indexOf(Number(r.Type) || 0) === -1) continue
     if (r.FinishStopName) parts.push(r.Number + '→' + r.FinishStopName)
   }
 
-  const entry = { items, parts }
-  routesCache.set(sid, entry)
-  return entry
+  return { items: hit.items, parts }
 }
 
 function isJSON(data) {
@@ -295,17 +331,21 @@ async function searchStops(query, lang) {
  */
 async function getArrivals(stopId, lang) {
   const sid = String(stopId)
-  const cached = arrivalsCache.get(sid)
+  const types = readEnabledTransportTypes()
+  // Cache per stop *and* selection: switching types must not replay data
+  // fetched for the previous selection.
+  const cacheKey = `${sid}:${types.join(',')}`
+  const cached = arrivalsCache.get(cacheKey)
   const now = Date.now()
   if (cached && now - cached.ts < ARRIVALS_TTL_MS) return cached.data
 
   const newBody = await postWithFallback(`${API_BASE}/GetScoreboard`, {
     StopId: sid,
-    Types: [0, 1, 2, 4],
+    Types: types,
   })
 
   const data = normalizeArrivals(newBody, sid)
-  arrivalsCache.set(sid, { ts: Date.now(), data })
+  arrivalsCache.set(cacheKey, { ts: Date.now(), data })
   return data;
 }
 
@@ -347,10 +387,47 @@ function normalizeArrivals(raw, stopId) {
       }
     })
     .sort((a, b) => a.minutes - b.minutes)
-    .filter((a) => a.route && a.minutes != null && a.minutes < 60 && a.type !== 3)
+    .filter((a) => a.route && a.minutes != null && a.minutes < 60)
 
   console.log(`Normalized arrivals for stopId=${stopId}:`, arrivals)
   return { stopId, arrivals }
+}
+
+/**
+ * Re-fetch route details for every favourite stop and write the result back
+ * to settingsStorage. Called when the enabled transport types change, so that
+ * favourites saved before the change gain the newly enabled types (and lose
+ * the disabled ones) without having to re-add the stop on the watch.
+ */
+async function refreshFavoritesRoutes() {
+  let favs = []
+  try {
+    const raw = settings.settingsStorage.getItem('favorites')
+    favs = raw ? JSON.parse(raw) : []
+  } catch (_e) {
+    favs = []
+  }
+  if (!Array.isArray(favs) || favs.length === 0) return
+
+  let cursor = 0
+  const workerCount = Math.min(ROUTE_CONCURRENCY, favs.length)
+  const workers = Array.from({ length: workerCount }, async () => {
+    while (cursor < favs.length) {
+      const fav = favs[cursor++]
+      const stopId = fav && fav.StopId != null ? String(fav.StopId) : ''
+      if (!stopId) continue
+      try {
+        const { items, parts } = await getStopRoutesCached(stopId)
+        fav.Routes = items
+        fav.RoutesSummary = parts
+      } catch (e) {
+        console.log('Favorite routes refresh failed for', stopId, e)
+      }
+    }
+  })
+  await Promise.all(workers)
+
+  settings.settingsStorage.setItem('favorites', JSON.stringify(favs))
 }
 
 AppSideService(
@@ -375,17 +452,35 @@ AppSideService(
         if (key === 'routeSummaryRequest' && newValue) {
           try {
             const { stopId, favIndex } = JSON.parse(newValue)
-            const { parts } = await getStopRoutesCached(String(stopId))
+            const { items, parts } = await getStopRoutesCached(String(stopId))
 
-            // Update the favorite's RoutesSummary and re-save
+            // Update the favorite's routes + summary and re-save
             const raw = settings.settingsStorage.getItem('favorites')
             const favs = raw ? JSON.parse(raw) : []
             if (favs[favIndex]) {
+              favs[favIndex].Routes = items
               favs[favIndex].RoutesSummary = parts
               settings.settingsStorage.setItem('favorites', JSON.stringify(favs))
             }
           } catch (e) {
             console.log('Route summary fetch error:', e)
+          }
+        }
+
+        // Transport type selection changed: cached routes/arrivals were built
+        // for the previous selection.
+        if (key === 'transportTypes') {
+          routesCache.clear()
+          arrivalsCache.clear()
+        }
+
+        // The Settings App asks for a full route refresh of the favourites
+        // (e.g. right after the user enabled a previously hidden type).
+        if (key === 'routesRefreshRequest' && newValue) {
+          try {
+            await refreshFavoritesRoutes()
+          } catch (e) {
+            console.log('Favorites routes refresh error:', e)
           }
         }
       })
@@ -418,9 +513,9 @@ AppSideService(
             const refreshInterval = parseInt(settings.settingsStorage.getItem('refreshInterval') || '30', 10) || 30
             const aeRaw = settings.settingsStorage.getItem('analyticsEnabled')
             const analyticsEnabled = aeRaw === null ? true : aeRaw === 'true'
-            res(null, { favorites, refreshInterval, analyticsEnabled })
+            res(null, { favorites, refreshInterval, analyticsEnabled, transportTypes: readEnabledTransportTypes() })
           } catch (e) {
-            res(null, { favorites: [], refreshInterval: 30 })
+            res(null, { favorites: [], refreshInterval: 30, transportTypes: DEFAULT_TRANSPORT_TYPES.slice() })
           }
 
         } else if (req.method === 'SAVE_FAVORITES') {

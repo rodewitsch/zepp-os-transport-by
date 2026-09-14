@@ -8,15 +8,16 @@ the official passenger transport app for the Republic of Belarus.
 
 - **Multi-device** – supports Amazfit Bip 6 (390 px), Balance 2 (480 px), T-Rex 3 (480 px), T-Rex 3 Pro (480 px), Active 2 (466 px), and Bip Max (432 px)
 - **Round screen support** – safe-area calculations for circular watch bezels
-- **Favourite stops** – save bus/tram/trolleybus/metro stops on the watch
+- **Favourite stops** – save bus/tram/trolleybus/minibus/metro stops on the watch
 - **Live arrivals** – see upcoming vehicles with minutes-until-arrival, colour-coded by transport type
+- **Transport type filter** – choose in the phone settings which transport types to show (bus, trolleybus, tram, minibus, metro); minibuses are hidden by default
 - **Auto-refresh** – arrivals update automatically at a configurable interval (15 s, 30 s, 1 min, 2 min or 5 min; default 30 s)
 - **Bright screen** – screen stays on and palm/drop-wrist sleep is disabled while viewing arrivals
 - **Stop search** – search stops by name on the watch using the on-device keyboard, or in the Zepp phone app Settings UI
 - **Swipe to delete** – swipe a stop card left on the home screen to reveal a red 🗑 delete area
 - **Route summaries** – when searching, each stop shows its available routes with destination names (e.g. `91→Веснинка`)
 - **Favourites sync** – favourites added/removed on the watch are synced to the phone Settings UI and vice versa
-- **Phone settings** – dark/light theme toggle and refresh-interval selection in the Zepp app Settings UI
+- **Phone settings** – dark/light theme toggle, refresh-interval selection and per-transport-type visibility toggles in the Zepp app Settings UI
 - **Favourites management on phone** – reorder stops with ▲/▼, colour-coded route badges, expandable route details (ⓘ) and a delete confirmation dialog
 - **Offline safe** – graceful error messages when offline or API unavailable
 
@@ -53,7 +54,8 @@ zepp-os-transport-by-app/
 │   ├── constants.js         ← Device-aware layout constants (screen size, safe zones, colours, fonts)
 │   ├── preloader.js         ← Deferred-render gate: black full-screen loading state shown during page transitions
 │   ├── storage.js           ← LocalStorage helpers for favourites & settings
-│   └── timing.js            ← minHoldMs(): keep loading states visible a minimum time
+│   ├── timing.js            ← minHoldMs(): keep loading states visible a minimum time
+│   └── transport-types.js   ← Transport type constants, labels/colours and route-filtering helpers
 ├── assets/
 │   ├── bip6/                ← Bip 6 device assets (icons, images)
 │   ├── balance2/            ← Balance 2 device assets (icons, images)
@@ -93,8 +95,11 @@ Zepp OS device does not have direct internet access; it communicates with the ph
 Stop search in the Settings App is driven by a `settingsStorage` listener in `app-side/index.js`
 instead of a direct message request, which avoids blocking the settings UI. Favourites are
 bidirectionally synced between the device (`LocalStorage`) and phone (`settingsStorage`).
-Theme (`darkMode`) and refresh-interval (`refreshInterval`) preferences also live in
-`settingsStorage` and are picked up by the device app via `GET_FAVORITES`.
+Theme (`darkMode`), refresh-interval (`refreshInterval`) and transport-type (`transportTypes`)
+preferences also live in `settingsStorage` and are picked up by the device app via
+`GET_FAVORITES`. Changing `transportTypes` makes the side service drop its caches, re-fetch the
+routes of every favourite (`routesRefreshRequest`) and update both `Routes` and `RoutesSummary`,
+so stops saved earlier pick up newly enabled types without being re-added.
 
 ## API endpoints used
 
@@ -117,7 +122,7 @@ All requests use `POST` against the **transport-by.app** internal API:
 |--------|--------|---------|
 | `GET_ARRIVALS` | `{ stopId, lang }` | `{ stopId, arrivals: [{ route, minutes, direction, type }] }` |
 | `SEARCH_STOPS` | `{ query, lang }` | `{ stops: Stop[] }` |
-| `GET_FAVORITES` | — | `{ favorites: Stop[], refreshInterval: number }` |
+| `GET_FAVORITES` | — | `{ favorites: Stop[], refreshInterval: number, analyticsEnabled: boolean, transportTypes: number[] }` |
 | `SAVE_FAVORITES` | `{ favorites: Stop[] }` | `{ ok: true }` |
 
 ## Transport type colours
@@ -127,29 +132,30 @@ All requests use `POST` against the **transport-by.app** internal API:
 | 0 | Bus | Green `#00c853` |
 | 1 | Trolleybus | Blue `#2196f3` |
 | 2 | Tram | Red `#f44336` |
-| 3 | Minibus | Orange `#ff9800` *(filtered out from arrivals)* |
+| 3 | Minibus | Orange `#ff9800` *(hidden by default)* |
 | 4 | Metro | Purple `#9c27b0` |
 
 ## Key modules
 
 ### `app-side/index.js` – Companion service
 
-- **`searchStops(query, lang)`** – searches stops via `POST /api/Search`, then enriches each result with route data via `POST /api/GetStopRouts` (excluding minibuses). Builds a compact `RoutesSummary` list per stop.
-- **`getArrivals(stopId, lang)`** – fetches live arrivals via `POST /api/GetScoreboard`, normalises the response (handles both JSON and NDJSON formats).
-- **`normalizeArrivals(raw, stopId)`** – normalises quote characters, sorts by minutes, filters out minibuses and arrivals > 60 min.
-- Settings Storage listener – intercepts `searchRequest` and `routeSummaryRequest` key changes from the Settings App and writes results back to `searchResults` / `favorites`.
+- **`searchStops(query, lang)`** – searches stops via `POST /api/Search`, then enriches each result with route data via `POST /api/GetStopRouts` (all transport types; the `RoutesSummary` lines follow the types enabled in the phone settings). Builds a compact `RoutesSummary` list per stop.
+- **`getArrivals(stopId, lang)`** – fetches live arrivals via `POST /api/GetScoreboard` for the enabled transport types, normalises the response (handles both JSON and NDJSON formats).
+- **`normalizeArrivals(raw, stopId)`** – normalises quote characters, sorts by minutes, drops arrivals > 60 min. Filtering by transport type happens on the watch.
+- **`refreshFavoritesRoutes()`** – re-fetches route details for every favourite and updates `Routes` + `RoutesSummary`; triggered by the `routesRefreshRequest` key when the transport-type selection changes.
+- Settings Storage listener – intercepts `searchRequest`, `routeSummaryRequest` and `transportTypes` / `routesRefreshRequest` key changes from the Settings App, writes results back to `searchResults` / `favorites` and drops the in-memory caches.
 
 ### `page/home/index.js` – Home (favourite stops)
 
 - Renders a scrollable list of favourite stop cards with route-type colour badges.
 - Swipe-to-delete: swiping a card left reveals a red 🗑 delete area. Tapping the background resets all revealed cards.
 - Empty state with app icon when no favourites exist; a **+ добавить** button is always visible.
-- On `build()`, syncs favourites and the refresh interval from the phone (`GET_FAVORITES`) and merges with local storage, then pushes local state back (`SAVE_FAVORITES`).
+- On `build()`, syncs favourites, the refresh interval and the transport-type selection from the phone (`GET_FAVORITES`) and merges with local storage, then pushes local state back (`SAVE_FAVORITES`).
 
 ### `page/arrivals/index.js` – Arrivals board
 
 - Displays live arrivals for a selected stop: route number, direction, and minutes until arrival.
-- Colour-coded by transport type (bus/trolleybus/tram/metro).
+- Colour-coded by transport type; arrivals whose type is disabled in the phone settings are filtered out.
 - Auto-refreshes at the configured interval (default 30 s, set in phone Settings) with an `Обновлено` timestamp footer.
 - Keeps the screen on (1 hour bright time + disables palm/drop-wrist sleep).
 
@@ -164,7 +170,12 @@ All requests use `POST` against the **transport-by.app** internal API:
 - Search UI with text input; search runs automatically from 2 characters via `settingsStorage`.
 - Displays search results with stop name, address, and route summaries; add with **+**, clear with **✕**. Already-added stops show ✓.
 - Favourites list: colour-coded route badges, ⓘ expandable route details, ▲/▼ reordering and **✕** removal with a confirmation dialog.
-- ⚙ settings view: dark/light theme toggle and refresh-interval selector (15 s – 5 min).
+- ⚙ settings view: dark/light theme toggle, refresh-interval selector (15 s – 5 min) and per-transport-type toggles (bus, trolleybus, tram, minibus, metro) with a **Все** shortcut. At least one type always stays enabled.
+
+### `utils/transport-types.js` – Transport types
+
+- Shared type model: `TRANSPORT_TYPES`, `ALL_TRANSPORT_TYPES`, `DEFAULT_TRANSPORT_TYPES` (everything but minibus), Russian labels and colour maps for the watch and the Settings App.
+- `normalizeTransportTypes()` sanitises a stored selection; `isTransportTypeEnabled()` and `filterRouteItems()` implement the route-badge filtering used by the watch pages and the phone settings.
 
 ### `utils/constants.js` – Layout & design tokens
 

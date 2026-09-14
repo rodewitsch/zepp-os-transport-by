@@ -1,3 +1,12 @@
+import {
+  ALL_TRANSPORT_TYPES,
+  DEFAULT_TRANSPORT_TYPES,
+  TRANSPORT_TYPE_COLORS_CSS,
+  TRANSPORT_TYPE_LABELS,
+  filterRouteItems,
+  normalizeTransportTypes,
+} from '../utils/transport-types'
+
 // Donation link (opens in the Zepp app's built-in browser)
 const DONATE_URL = 'https://boosty.to/rodevich/donate'
 
@@ -12,22 +21,15 @@ const ROUTE_TYPE_COLORS = {
 
 /**
  * Build route badge elements from a stop's Routes array.
+ * Only the transport types enabled in the settings are rendered.
  * @param {any} stop
+ * @param {any} colors
+ * @param {boolean} isDark
+ * @param {number[]} enabledTypes
  * @returns {any[]}
  */
-function buildRouteBadges(stop, colors, isDark) {
-  const routeItems = Array.isArray(stop.Routes) ? stop.Routes : []
-  const routes = []
-  const seen = new Set()
-  for (const item of routeItems) {
-    const r = item.result || item
-    const num = r.Number || ''
-    const type = r.Type != null ? r.Type : 0
-    if (num && !seen.has(num) && type !== 3) {
-      seen.add(num)
-      routes.push({ num, type })
-    }
-  }
+function buildRouteBadges(stop, colors, isDark, enabledTypes) {
+  const routes = filterRouteItems(stop.Routes, enabledTypes)
   if (routes.length === 0) return []
 
   return routes.slice(0, 7).map((route) => {
@@ -65,6 +67,7 @@ AppSettingsPage({
     darkMode: false,
     refreshInterval: 30,
     analyticsEnabled: true,
+    transportTypes: DEFAULT_TRANSPORT_TYPES.slice(),
   },
 
   build(props) {
@@ -262,7 +265,7 @@ AppSettingsPage({
                 fav.Address || ''
               ),
               View({ style: { display: 'flex', flexWrap: 'wrap', marginTop: '4px', alignItems: 'center' } }, [
-                ...buildRouteBadges(fav, BADGE_COLORS, isDark),
+                ...buildRouteBadges(fav, BADGE_COLORS, isDark, this.state.transportTypes),
                 btnInfo,
               ]),
             ]),
@@ -588,7 +591,54 @@ AppSettingsPage({
     // Analytics is enabled by default; disabled only when explicitly turned off
     this.state.analyticsEnabled = ae === null ? true : ae === 'true'
 
+    // Transport types to display on the watch; minibus stays off by default
+    this.state.transportTypes = normalizeTransportTypes(s.getItem('transportTypes'))
+
     this.state.currentView = s.getItem('currentView') || 'stops'
+  },
+
+  /**
+   * Enable/disable a transport type and persist the selection.
+   * @param {any} props
+   * @param {number} type
+   * @param {boolean} checked
+   */
+  toggleTransportType(props, type, checked) {
+    const current = this.state.transportTypes.slice()
+    const idx = current.indexOf(type)
+    if (checked && idx === -1) {
+      current.push(type)
+    } else if (!checked && idx !== -1) {
+      // Never leave the selection empty — nothing at all would be shown.
+      if (current.length <= 1) return
+      current.splice(idx, 1)
+    } else {
+      return
+    }
+    this.setTransportTypes(props, current)
+  },
+
+  /**
+   * Store the transport-type selection and ask the phone service to refresh
+   * the routes of the favourites, so already-saved stops pick up the newly
+   * enabled types without being re-added on the watch.
+   * @param {any} props
+   * @param {number[]} next
+   */
+  setTransportTypes(props, next) {
+    const { settingsStorage } = props
+    const normalized = normalizeTransportTypes(next)
+    const unchanged =
+      normalized.length === this.state.transportTypes.length &&
+      normalized.every((t, i) => t === this.state.transportTypes[i])
+    if (unchanged) return
+
+    this.state.transportTypes = normalized
+    settingsStorage.setItem('transportTypes', JSON.stringify(normalized))
+    settingsStorage.setItem(
+      'routesRefreshRequest',
+      JSON.stringify({ ts: Date.now(), types: normalized })
+    )
   },
 
   buildSettingsView(props) {
@@ -677,6 +727,58 @@ AppSettingsPage({
             }, [Text({ style: { color: this.state.refreshInterval === opt.value ? (isDark ? '#fff' : '#000') : THEME.btnText, fontSize: '13px', textAlign: 'center', display: 'block' } }, opt.label)])
           )
         ),
+      ]),
+
+      // Transport types to display on the watch
+      View({ style: { display: 'flex', flexDirection: 'column', padding: '12px 0', borderTop: '1px solid ' + THEME.border } }, [
+        View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' } }, [
+          Text({ style: { color: THEME.text, fontSize: '15px' } }, 'Типы транспорта'),
+          View({
+            style: { background: THEME.btnBg, borderRadius: '16px', padding: '6px 14px', cursor: 'pointer' },
+            onClick: () => this.setTransportTypes(props, ALL_TRANSPORT_TYPES.slice()),
+          }, [Text({ style: { color: THEME.btnText, fontSize: '13px' } }, 'Все')]),
+        ]),
+        Text(
+          { style: { color: isDark ? '#999' : '#777', fontSize: '11px', marginBottom: '4px', display: 'block' } },
+          'Маршруты каких типов показывать на часах. Скрытые типы не попадают ни в прибытия, ни в бейджи остановок.'
+        ),
+        ALL_TRANSPORT_TYPES.map((type) => {
+          const isOn = this.state.transportTypes.indexOf(type) !== -1
+          return View({
+            style: { display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid ' + THEME.border, cursor: 'pointer' },
+            onClick: () => this.toggleTransportType(props, type, !isOn),
+          }, [
+            View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: '12px' } }, [
+              View({ style: { width: '10px', height: '10px', borderRadius: '50%', background: TRANSPORT_TYPE_COLORS_CSS[type], marginRight: '8px' } }),
+              Text({ style: { color: THEME.text, fontSize: '15px' } }, TRANSPORT_TYPE_LABELS[type]),
+            ]),
+            // Hand-rolled switch: the native Toggle has no style/color props
+            // and always renders in the system pink. Colours mirror the pills
+            // in the "Обновление данных" section — accent when on, grey when off.
+            View({
+              style: {
+                width: '44px',
+                height: '24px',
+                borderRadius: '12px',
+                background: isOn ? THEME.accent : THEME.btnBg,
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: isOn ? 'flex-end' : 'flex-start',
+                padding: '0 3px',
+                boxSizing: 'border-box',
+              },
+            }, [
+              View({ style: { width: '18px', height: '18px', borderRadius: '50%', background: '#ffffff' } }),
+            ]),
+          ])
+        }),
+        this.state.transportTypes.length <= 1
+          ? Text(
+            { style: { color: '#ff9800', fontSize: '11px', marginTop: '8px', display: 'block' } },
+            'Нельзя скрыть все типы — хотя бы один должен остаться включённым.'
+          )
+          : undefined,
       ]),
     ])
   },

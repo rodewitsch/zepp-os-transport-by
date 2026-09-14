@@ -1,5 +1,6 @@
 import { LocalStorage } from '@zos/storage'
 import { STORAGE_KEY_FAVORITES, STORAGE_KEY_SETTINGS } from './constants'
+import { DEFAULT_TRANSPORT_TYPES, normalizeTransportTypes } from './transport-types'
 
 const storage = new LocalStorage()
 
@@ -25,6 +26,11 @@ export function loadFavorites() {
  * Shrink a stop's Routes to the few fields the UI actually renders
  * ({Number, Type, FinishStopName}). Keeps LocalStorage and bridge
  * payloads small, which speeds up every save/load round-trip.
+ *
+ * All transport types are kept (including minibus) — which types are
+ * actually displayed is decided at render time from the user's
+ * `transportTypes` selection, so toggling a type never requires
+ * re-adding a stop.
  * @param {Stop} stop
  * @returns {Stop}
  */
@@ -36,7 +42,7 @@ function compactStop(stop) {
   const routes = []
   for (const item of stop.Routes) {
     const r = item && item.result ? item.result : item
-    if (!r || !r.Number || r.Type === 3) continue
+    if (!r || !r.Number) continue
     const num = String(r.Number)
     if (seen.has(num)) continue
     seen.add(num)
@@ -86,15 +92,19 @@ export function removeFavorite(index) {
 
 /**
  * Load app settings.
- * @returns {{ language: string, darkMode: boolean, refreshInterval: number }} Settings object
+ * @returns {{ language: string, darkMode: boolean, refreshInterval: number, transportTypes: number[] }} Settings object
  */
 export function loadSettings() {
   // @ts-ignore
-  return storage.getItem(STORAGE_KEY_SETTINGS, {
+  const s = storage.getItem(STORAGE_KEY_SETTINGS, {
     language: 'ru',
     darkMode: true,
     refreshInterval: 30,
-  });
+  }) || {};
+  if (s.transportTypes == null) {
+    s.transportTypes = DEFAULT_TRANSPORT_TYPES.slice()
+  }
+  return s
 }
 
 /**
@@ -140,6 +150,25 @@ export function loadAnalyticsEnabled() {
 export function saveAnalyticsEnabled(enabled) {
   const s = loadSettings()
   s.analyticsEnabled = !!enabled
+  saveSettings(s)
+}
+
+/**
+ * Load the transport types the user wants to see (set in the phone Settings App).
+ * Falls back to DEFAULT_TRANSPORT_TYPES when unset or invalid.
+ * @returns {number[]}
+ */
+export function loadTransportTypes() {
+  return normalizeTransportTypes(loadSettings().transportTypes)
+}
+
+/**
+ * Save the transport types the user wants to see.
+ * @param {number[]} types
+ */
+export function saveTransportTypes(types) {
+  const s = loadSettings()
+  s.transportTypes = normalizeTransportTypes(types)
   saveSettings(s)
 }
 
