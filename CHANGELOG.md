@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.8.0](https://github.com/rodewitsch/zepp-os-transport-by/compare/v1.7.0...v1.8.0) (2026-09-15)
+
+
+### Features
+
+* **analytics:** per-screen events, phone settings tracking and device info ([d05f375](https://github.com/rodewitsch/zepp-os-transport-by/commit/d05f375b1b4beacad3cadbac61df0e6fb5e79c50))
+* choose which transport types are shown on the watch ([baef80b](https://github.com/rodewitsch/zepp-os-transport-by/commit/baef80b28bd575c725f4b7ee331c2ce66fb3f259))
+
 ## [1.7.0](https://github.com/rodewitsch/zepp-os-transport-by/compare/v1.6.0...v1.7.0) (2026-09-09)
 
 
