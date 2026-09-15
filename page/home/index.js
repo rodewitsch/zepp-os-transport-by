@@ -25,7 +25,7 @@ import {
 } from '../../utils/constants'
 import { loadFavorites, saveFavorites, removeFavorite, saveRefreshInterval, saveAnalyticsEnabled, saveArrivalsCache, loadTransportTypes, saveTransportTypes } from '../../utils/storage'
 import { filterRouteItems, normalizeTransportTypes } from '../../utils/transport-types'
-import { initAnalytics, screenView, track, refreshAnalyticsEnabled, setAnalyticsBridge } from '../../utils/analytics'
+import { initAnalytics, setupPageAnalytics, track, flush, refreshAnalyticsEnabled } from '../../utils/analytics'
 import { deferRender } from '../../utils/preloader'
 
 const logger = Logger.getLogger('home')
@@ -65,10 +65,10 @@ Page(
     },
     build() {
       // Analytics: route events through the app-side service — the watch
-      // side has no network access on real devices.
-      setAnalyticsBridge((method, params) => this.request({ method, params }))
+      // side has no network access on real devices. Every page needs its own
+      // bridge: Zeus bundles the analytics module into each page separately.
+      setupPageAnalytics((method, params) => this.request({ method, params }), 'home')
       initAnalytics()
-      screenView('home')
 
       this.state.favorites = loadFavorites()
       this.state.transportTypes = loadTransportTypes()
@@ -625,6 +625,9 @@ Page(
     },
 
     onDestroy() {
+      // Push out anything still queued while this page's bridge is alive.
+      flush()
+
       // A fast back-navigation can destroy the page before the deferred render
       // fires — cancel it so we never build widgets on a destroyed page.
       if (this.state.preloader) {

@@ -69,6 +69,100 @@ function sendAnalytics(payload) {
   } catch (_e) { }
 }
 
+// ── Settings App → GA4 ──
+// The Settings App runs on the phone but has no bridge to this service, so it
+// queues events in settingsStorage (see utils/analytics-settings.js) and we
+// relay them here. Phone events reuse the watch's client_id and device
+// user properties, so one installation counts as one GA4 user.
+const SETTINGS_EVENTS_KEY = 'analyticsEvents'
+const SETTINGS_EVENTS_HANDLED_KEY = 'analyticsEventsHandled'
+const WATCH_CLIENT_ID_KEY = 'analyticsClientId'
+const PHONE_CLIENT_ID_KEY = 'analyticsClientIdPhone'
+
+let watchClientId = ''
+let watchUserProperties = null
+
+/**
+ * Whether anonymous stats are enabled (Settings App toggle, on by default).
+ * @returns {boolean}
+ */
+function isAnalyticsEnabled() {
+  try {
+    return settings.settingsStorage.getItem('analyticsEnabled') !== 'false'
+  } catch (_e) {
+    return true
+  }
+}
+
+/**
+ * Remember the watch's GA4 identity from a device payload so Settings App
+ * events are attributed to the same user and carry the device context.
+ * @param {any} payload
+ */
+function rememberWatchIdentity(payload) {
+  try {
+    if (payload.client_id && payload.client_id !== watchClientId) {
+      watchClientId = payload.client_id
+      settings.settingsStorage.setItem(WATCH_CLIENT_ID_KEY, watchClientId)
+    }
+    if (payload.user_properties) watchUserProperties = payload.user_properties
+  } catch (_e) { }
+}
+
+/**
+ * Client id for phone-side events: the watch's, when it is known, otherwise a
+ * stable phone-side id (used only until the watch app has reported once).
+ * @returns {string}
+ */
+function readPhoneClientId() {
+  if (watchClientId) return watchClientId
+  try {
+    let cid = settings.settingsStorage.getItem(PHONE_CLIENT_ID_KEY)
+    if (!cid) {
+      cid = 'p.' + Date.now().toString(36) + '.' + Math.random().toString(36).slice(2, 10)
+      settings.settingsStorage.setItem(PHONE_CLIENT_ID_KEY, cid)
+    }
+    return cid
+  } catch (_e) {
+    return 'p.' + Date.now().toString(36)
+  }
+}
+
+/**
+ * Relay a batch of Settings App events to GA4. Batches are idempotent: the
+ * handled id is stored, so a service restart never sends the same batch twice.
+ */
+function flushSettingsAnalytics() {
+  let raw = ''
+  try {
+    raw = settings.settingsStorage.getItem(SETTINGS_EVENTS_KEY) || ''
+  } catch (_e) {
+    return
+  }
+  if (!raw) return
+
+  let batch = null
+  try {
+    batch = JSON.parse(raw)
+  } catch (_e) {
+    return
+  }
+  if (!batch || !batch.id || !Array.isArray(batch.events) || batch.events.length === 0) return
+
+  try {
+    if (settings.settingsStorage.getItem(SETTINGS_EVENTS_HANDLED_KEY) === batch.id) return
+    settings.settingsStorage.setItem(SETTINGS_EVENTS_HANDLED_KEY, batch.id)
+  } catch (_e) { }
+
+  if (!isAnalyticsEnabled()) return
+
+  sendAnalytics({
+    client_id: readPhoneClientId(),
+    user_properties: watchUserProperties || {},
+    events: batch.events,
+  })
+}
+
 // ── Performance helpers ──
 // App-side service runs while the phone is connected, so in-memory
 // caches here absorb duplicate/back-to-back requests from the watch.
@@ -433,7 +527,19 @@ async function refreshFavoritesRoutes() {
 AppSideService(
   BaseSideService({
     onInit() {
+      // Analytics identity kept across service restarts, plus any Settings App
+      // batch that was queued while the service was not running.
+      try {
+        watchClientId = settings.settingsStorage.getItem(WATCH_CLIENT_ID_KEY) || ''
+      } catch (_e) { }
+      flushSettingsAnalytics()
+
       settings.settingsStorage.addListener('change', async ({ key, newValue }) => {
+        // Settings App analytics batch (see utils/analytics-settings.js)
+        if (key === SETTINGS_EVENTS_KEY && newValue) {
+          flushSettingsAnalytics()
+        }
+
         // Handle search requests from the Settings App
         if (key === 'searchRequest' && newValue) {
           try {
@@ -528,6 +634,7 @@ AppSideService(
           // Device → GA4: the watch builds the payload, the side service POSTs it.
           const { payload } = req.params || {}
           if (payload && Array.isArray(payload.events) && payload.events.length > 0) {
+            rememberWatchIdentity(payload)
             sendAnalytics(payload)
           }
           res(null, { ok: true })

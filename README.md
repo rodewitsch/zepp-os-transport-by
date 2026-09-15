@@ -51,6 +51,8 @@ zepp-os-transport-by-app/
 ├── setting/
 │   └── index.js             ← Zepp Settings App UI (runs on phone); stop search, favourites management (reorder, route details, delete confirmation), theme & refresh-interval settings
 ├── utils/
+│   ├── analytics.js         ← GA4 Measurement Protocol client (screen views, events)
+│   ├── analytics-settings.js ← GA4 events for the phone Settings App (settingsStorage relay)
 │   ├── constants.js         ← Device-aware layout constants (screen size, safe zones, colours, fonts)
 │   ├── preloader.js         ← Deferred-render gate: black full-screen loading state shown during page transitions
 │   ├── storage.js           ← LocalStorage helpers for favourites & settings
@@ -124,6 +126,70 @@ All requests use `POST` against the **transport-by.app** internal API:
 | `SEARCH_STOPS` | `{ query, lang }` | `{ stops: Stop[] }` |
 | `GET_FAVORITES` | — | `{ favorites: Stop[], refreshInterval: number, analyticsEnabled: boolean, transportTypes: number[] }` |
 | `SAVE_FAVORITES` | `{ favorites: Stop[] }` | `{ ok: true }` |
+| `SEND_ANALYTICS` | `{ payload }` | `{ ok: true }` — relays a GA4 Measurement Protocol payload to `/mp/collect` |
+
+## Analytics (Google Analytics 4)
+
+Anonymous usage stats are sent to the GA4 property `G-B72992K91T` through the Measurement Protocol.
+The watch has no internet access on real devices, so events are relayed to `app-side/index.js`
+(method `SEND_ANALYTICS`), which POSTs them to `/mp/collect`. Users can opt out via
+«Анонимная статистика» in the phone Settings.
+
+**Every page must call `setupPageAnalytics(this.request, 'screen_name')` as the first thing in
+`onInit`/`build`.** Zeus bundles `utils/analytics.js` into every page separately, and Zepp OS
+destroys the previous page as soon as a new one is pushed — so a bridge injected on the home page
+does not exist on any other screen, and those events would never leave the watch.
+`setupPageAnalytics` injects the page's own bridge, remembers the screen (all later events from
+that page carry `screen_name`) and fires the `screen_view`.
+
+| `screen_name` | Surface | Events |
+|---------------|---------|--------|
+| `home` | watch – `page/home/index.js` | `screen_view` |
+| `arrivals` | watch – `page/arrivals/index.js` | `screen_view` (+ `stop_id`, `stop_name`), `arrivals_viewed` (+ `arrivals_count`) |
+| `add_stop` | watch – `page/add-stop/index.js` | `screen_view`, `search` (+ `search_term`, `search_city`, `results_count`), `stop_added` |
+| `settings_stops` | phone – `setting/index.js` | `screen_view` (+ `favorites_count`), `search` (+ `search_term`, `results_count`), `stop_added`, `stop_removed`, `stop_reordered` (+ `direction`), `route_details_toggled` (+ `expanded`) |
+| `settings_prefs` | phone – `setting/index.js` | `screen_view`, `setting_changed` (+ `setting`: `theme` / `analytics` / `refresh_interval` / `transport_types`, `setting_value`) |
+| — | — | `app_first_open`, `app_launch`, `stop_removed`, `donate_qr_open` (watch) |
+
+The phone Settings App has no bridge to the app-side service, so `utils/analytics-settings.js` queues
+events into `settingsStorage` under `analyticsEvents` (`{ id, events }`); `app-side/index.js` relays the
+batch to GA4 and stores the handled id in `analyticsEventsHandled`, so a service restart never sends
+the same batch twice. Phone events reuse the watch's `client_id` (`analyticsClientId`) and device user
+properties — one installation counts as one GA4 user. Until the watch app has reported once, a
+phone-side id (`analyticsClientIdPhone`) is used.
+
+Sending details:
+
+- `app_first_open` fires once per install (LocalStorage flag); `app_launch` fires **once per app
+  process** — the marker lives on the app's `globalData` (`getApp()._options.globalData`), because
+  returning from another screen re-runs the home page's `build()` and must not look like a launch.
+- Events are queued and flushed with a 1.5 s debounce; each page flushes the queue in `onDestroy`
+  while its own bridge is still alive, and events that could not be handed over to a transport stay
+  queued for a later flush of the same page. Settings App events are written to `settingsStorage`
+  immediately (one write per action) and relayed by the app-side service.
+- GA4 rejects the reserved names `first_open` / `session_start` over the Measurement Protocol, which
+  is why `app_first_open` / `app_launch` are used instead.
+
+### Which device is it running on?
+
+The device rides along with the launch/screen events instead of being repeated on every event:
+
+| Param | Where it appears | Value |
+|-------|------------------|-------|
+| `watch_model` | `app_first_open`, `app_launch` (+ payload user properties) | `Amazfit Bip 6`, `Amazfit Balance 2`, `Amazfit T-Rex 3`, `Amazfit T-Rex 3 Pro`, `Amazfit Active 2`, `Amazfit Bip Max` |
+| `phone_model` | Settings App `screen_view` | parsed from the webview user agent (e.g. `SM-S911B`, `iPhone`) |
+| `phone_platform` | Settings App `screen_view` | `Android 14`, `iOS 17.0`, `Windows`, `macOS` |
+| `phone_ua` | Settings App `screen_view` | raw user agent (100 chars, for debugging the parsing) |
+
+The watch model is resolved from `deviceSource` through the `DEVICE_MODELS` table in
+`utils/analytics.js`, which mirrors the `targets` table in `app.json` — the OS-reported `deviceName` is
+not always present and the screen size is ambiguous (480×480 is shared by three models). When
+`deviceName` is missing, `device_name` (the existing user-scoped dimension) falls back to the same
+mapped value. **Add new devices to `DEVICE_MODELS` together with the `app.json` target.**
+
+To use them in GA4: Admin → Custom definitions → register `watch_model` (User scope — it then works
+for every event of a user; Event scope also works, because the value is sent on the launch events
+too), `phone_model` and `phone_platform` (Event scope), `phone_ua` (optional, Event scope).
 
 ## Transport type colours
 
@@ -176,6 +242,30 @@ All requests use `POST` against the **transport-by.app** internal API:
 
 - Shared type model: `TRANSPORT_TYPES`, `ALL_TRANSPORT_TYPES`, `DEFAULT_TRANSPORT_TYPES` (everything but minibus), Russian labels and colour maps for the watch and the Settings App.
 - `normalizeTransportTypes()` sanitises a stored selection; `isTransportTypeEnabled()` and `filterRouteItems()` implement the route-badge filtering used by the watch pages and the phone settings.
+
+### `utils/analytics.js` – GA4 Measurement Protocol client
+
+- `setupPageAnalytics(requestFn, screenName, params)` – one-call page setup: injects the page's
+  own bridge to the app-side service, remembers `screen_name` for all following events and fires
+  the `screen_view`. Must be called from every page (see [Analytics](#analytics-google-analytics-4)).
+- `initAnalytics()` – fires `app_first_open` (once per install) and `app_launch` (once per app
+  process) with `watch_model`; called from the home page, which is the app entry point.
+- `track(name, params)` / `screenView(name, params)` – queue events; the current screen is added to
+  every event automatically so reports can be broken down by `screen_name`. `flush()` sends the
+  queue immediately (used in each page's `onDestroy`).
+- Opt-out flag is cached and refreshed by `refreshAnalyticsEnabled()` after Settings sync; a
+  missing/broken transport never breaks the app.
+
+### `utils/analytics-settings.js` – GA4 client for the phone Settings App
+
+- `initSettingsAnalytics(props.settingsStorage)` – binds the storage; called on every Settings App
+  `build()`.
+- `settingsScreenView(name, params)` – logs `screen_view` once per view switch (the page re-renders on
+  every storage change), `trackSettingsEvent(name, params)` – logs an action.
+- Events are written to `settingsStorage.analyticsEvents` as `{ id, events }` batches and relayed to
+  GA4 by `app-side/index.js`; the current screen is added to every event as `screen_name`.
+- Respects the «Анонимная статистика» toggle: nothing is queued while it is off (so turning the
+  switch off is intentionally not reported).
 
 ### `utils/constants.js` – Layout & design tokens
 

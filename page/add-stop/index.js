@@ -23,7 +23,7 @@ import {
 } from '../../utils/constants'
 import { addFavorite, loadFavorites, loadTransportTypes } from '../../utils/storage'
 import { isTransportTypeEnabled } from '../../utils/transport-types'
-import { screenView, track } from '../../utils/analytics'
+import { setupPageAnalytics, track, flush } from '../../utils/analytics'
 import { minHoldMs } from '../../utils/timing'
 
 const logger = Logger.getLogger('add-stop')
@@ -59,7 +59,11 @@ Page(
     },
 
     build() {
-      screenView('add_stop')
+      // Analytics: this page needs its own bridge — each page is bundled with
+      // its own copy of the analytics module and the home page is destroyed as
+      // soon as this page is pushed.
+      setupPageAnalytics((method, params) => this.request({ method, params }), 'add_stop')
+
       this.state.transportTypes = loadTransportTypes()
       this.renderPage()
     },
@@ -504,7 +508,10 @@ Page(
 
           track('search', {
             search_term: query,
-            city: this.state.selectedCity,
+            // `search_city` rather than `city`: GA4 already uses `city` for the
+            // automatically collected geo parameter, so a custom dimension
+            // registered under that name would be ambiguous.
+            search_city: this.state.selectedCity,
             results_count: this.state.results.length,
           })
 
@@ -521,6 +528,9 @@ Page(
     },
 
     onDestroy() {
+      // Push out anything still queued while this page's bridge is alive.
+      flush()
+
       if (this.state.spinner) this.state.spinner.stop()
       logger.log('Add-stop page destroyed')
     },

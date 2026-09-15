@@ -6,6 +6,11 @@ import {
   filterRouteItems,
   normalizeTransportTypes,
 } from '../utils/transport-types'
+import {
+  initSettingsAnalytics,
+  settingsScreenView,
+  trackSettingsEvent,
+} from '../utils/analytics-settings'
 
 // Donation link (opens in the Zepp app's built-in browser)
 const DONATE_URL = 'https://boosty.to/rodevich/donate'
@@ -71,6 +76,10 @@ AppSettingsPage({
   },
 
   build(props) {
+    // Analytics: phone-side events go to settingsStorage and are relayed to
+    // GA4 by the app-side service (see utils/analytics-settings.js).
+    initSettingsAnalytics(props.settingsStorage)
+
     if (!this.state.initialized) {
       this.state.initialized = true
       props.settingsStorage.setItem('searchResults', JSON.stringify([]))
@@ -80,8 +89,11 @@ AppSettingsPage({
     this.loadStorage(props)
 
     if (this.state.currentView === 'settings') {
+      settingsScreenView('settings_prefs')
       return this.buildSettingsView(props)
     }
+
+    settingsScreenView('settings_stops', { favorites_count: this.state.favorites.length })
 
     const { settingsStorage } = props
     const isDark = this.state.darkMode
@@ -140,6 +152,10 @@ AppSettingsPage({
                 // Store the raw API object — same shape the watch uses
                 favs.push(stop)
                 settingsStorage.setItem('favorites', JSON.stringify(favs))
+                trackSettingsEvent('stop_added', {
+                  stop_id: stopId,
+                  stop_name: stop.StopName || '',
+                })
               },
             }),
         ]
@@ -172,6 +188,10 @@ AppSettingsPage({
             const favs = this.state.favorites.slice()
               ;[favs[idx - 1], favs[idx]] = [favs[idx], favs[idx - 1]]
             settingsStorage.setItem('favorites', JSON.stringify(favs))
+            trackSettingsEvent('stop_reordered', {
+              stop_id: String(fav.StopId || ''),
+              direction: 'up',
+            })
           },
         })
 
@@ -194,6 +214,10 @@ AppSettingsPage({
             const favs = this.state.favorites.slice()
               ;[favs[idx], favs[idx + 1]] = [favs[idx + 1], favs[idx]]
             settingsStorage.setItem('favorites', JSON.stringify(favs))
+            trackSettingsEvent('stop_reordered', {
+              stop_id: String(fav.StopId || ''),
+              direction: 'down',
+            })
           },
         })
 
@@ -214,6 +238,11 @@ AppSettingsPage({
           expanded[idx] = !expanded[idx]
           this.state.expandedStops = expanded
           settingsStorage.setItem('expandedStops', JSON.stringify(expanded))
+
+          trackSettingsEvent('route_details_toggled', {
+            stop_id: String(fav.StopId || ''),
+            expanded: !!expanded[idx],
+          })
 
           if (expanded[idx] && (!Array.isArray(fav.RoutesSummary) || fav.RoutesSummary.length === 0)) {
             settingsStorage.setItem('routeSummaryRequest', JSON.stringify({
@@ -536,6 +565,10 @@ AppSettingsPage({
                   if (deleteIdx !== -1) {
                     favs.splice(deleteIdx, 1)
                     settingsStorage.setItem('favorites', JSON.stringify(favs))
+                    trackSettingsEvent('stop_removed', {
+                      stop_id: stopId,
+                      stop_name: (this.state.pendingDelete && this.state.pendingDelete.name) || '',
+                    })
                   }
                   settingsStorage.setItem('pendingDelete', '')
                 },
@@ -549,6 +582,7 @@ AppSettingsPage({
 
   loadStorage(props) {
     const s = props.settingsStorage;
+    const wasSearching = this.state.searching === true
 
     try {
       const f = s.getItem('favorites')
@@ -572,6 +606,15 @@ AppSettingsPage({
     }
 
     this.state.searching = s.getItem('searching') === 'true'
+
+    // The search itself is typed keystroke by keystroke, so log it once here —
+    // when the app-side wrote the results back and `searching` flips off.
+    if (wasSearching && !this.state.searching) {
+      trackSettingsEvent('search', {
+        search_term: (this.state.searchQuery || '').trim(),
+        results_count: this.state.searchResults.length,
+      })
+    }
 
     try {
       const e = s.getItem('expandedStops')
@@ -639,6 +682,10 @@ AppSettingsPage({
       'routesRefreshRequest',
       JSON.stringify({ ts: Date.now(), types: normalized })
     )
+    trackSettingsEvent('setting_changed', {
+      setting: 'transport_types',
+      setting_value: normalized.join(','),
+    })
   },
 
   buildSettingsView(props) {
@@ -689,6 +736,10 @@ AppSettingsPage({
           onClick: () => {
             this.state.darkMode = !this.state.darkMode
             settingsStorage.setItem('darkMode', this.state.darkMode ? 'true' : 'false')
+            trackSettingsEvent('setting_changed', {
+              setting: 'theme',
+              setting_value: this.state.darkMode ? 'dark' : 'light',
+            })
           },
         }, [Text({ style: { color: isDark ? '#fff' : '#000', fontSize: '14px' } }, isDark ? 'Выкл' : 'Вкл')]),
       ]),
@@ -709,6 +760,12 @@ AppSettingsPage({
           onClick: () => {
             this.state.analyticsEnabled = !this.state.analyticsEnabled
             settingsStorage.setItem('analyticsEnabled', this.state.analyticsEnabled ? 'true' : 'false')
+            // Turning the flag off disables the queue itself, so only "on" arrives;
+            // the opt-out is visible in the settingsStorage flag instead.
+            trackSettingsEvent('setting_changed', {
+              setting: 'analytics',
+              setting_value: this.state.analyticsEnabled ? 'on' : 'off',
+            })
           },
         }, [Text({ style: { color: this.state.analyticsEnabled ? '#fff' : '#000', fontSize: '14px' } }, this.state.analyticsEnabled ? 'Выкл' : 'Вкл')]),
       ]),
@@ -723,6 +780,12 @@ AppSettingsPage({
               onClick: () => {
                 this.state.refreshInterval = opt.value
                 settingsStorage.setItem('refreshInterval', String(opt.value))
+                trackSettingsEvent('setting_changed', {
+                  setting: 'refresh_interval',
+                  // Seconds. Named `setting_value`, not `value`: GA4 reserves
+                  // `value` for monetary values.
+                  setting_value: String(opt.value),
+                })
               },
             }, [Text({ style: { color: this.state.refreshInterval === opt.value ? (isDark ? '#fff' : '#000') : THEME.btnText, fontSize: '13px', textAlign: 'center', display: 'block' } }, opt.label)])
           )

@@ -29,7 +29,7 @@ import {
 import { deferRender } from '../../utils/preloader'
 import { loadRefreshInterval, loadArrivalsCache, saveArrivalsCache, loadTransportTypes } from '../../utils/storage'
 import { isTransportTypeEnabled } from '../../utils/transport-types'
-import { screenView, track } from '../../utils/analytics'
+import { setupPageAnalytics, track, flush } from '../../utils/analytics'
 import { minHoldMs } from '../../utils/timing'
 
 const logger = Logger.getLogger('arrivals')
@@ -119,6 +119,27 @@ Page(
 
     onInit(paramsStr) {
       logger.log('Arrivals page init, params:', paramsStr)
+
+      // Analytics: this page needs its own bridge — each page is bundled with
+      // its own copy of the analytics module and the home page is destroyed
+      // as soon as this page is pushed.
+      try {
+        const params = JSON.parse(paramsStr || '{}')
+        this.state.stop = params.stop || null
+        this.state.index = params.index != null ? params.index : -1
+      } catch (/** @type {any} */ e) {
+        logger.log('Failed to parse params:', e)
+      }
+
+      const stop = this.state.stop
+      setupPageAnalytics(
+        (method, params) => this.request({ method, params }),
+        'arrivals',
+        stop
+          ? { stop_id: String(stop.StopId || ''), stop_name: stop.StopName || '' }
+          : null
+      )
+
       try {
         setPageBrightTime({ brightTime: BRIGHT_TIME_MS })
       } catch (/** @type {any} */ e) {
@@ -133,21 +154,6 @@ Page(
         pauseDropWristScreenOff({ duration: 0 })
       } catch (/** @type {any} */ e) {
         logger.log('Failed to pause drop wrist screen off:', e)
-      }
-
-      try {
-        const params = JSON.parse(paramsStr || '{}')
-        this.state.stop = params.stop || null
-        this.state.index = params.index != null ? params.index : -1
-      } catch (/** @type {any} */ e) {
-        logger.log('Failed to parse params:', e)
-      }
-
-      if (this.state.stop) {
-        screenView('arrivals', {
-          stop_id: String(this.state.stop.StopId || ''),
-          stop_name: this.state.stop.StopName || '',
-        })
       }
     },
 
@@ -649,6 +655,9 @@ Page(
     },
 
     onDestroy() {
+      // Push out anything still queued while this page's bridge is alive.
+      flush()
+
       this.stopAutoRefresh()
       if (this.state.preloader) {
         this.state.preloader.cancel()
